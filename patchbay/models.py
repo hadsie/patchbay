@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+from pydantic import BaseModel
+
+
+class ServiceStatus(BaseModel):
+    name: str
+    type: str
+    target: str
+    description: str
+    category: str
+    icon: str
+    url: str | None
+    state: str
+    health: str
+    uptime: str | None
+
+
+class ServiceActionResponse(BaseModel):
+    name: str
+    action: str
+    result: str
+    previous_state: str | None = None
+    current_state: str | None = None
+    duration_seconds: float | None = None
+    error: str | None = None
+
+
+class PresetActionInfo(BaseModel):
+    service: str
+    action: str
+
+
+class PresetInfo(BaseModel):
+    name: str
+    description: str
+    icon: str
+    actions: list[PresetActionInfo]
+
+
+class PresetActionResult(BaseModel):
+    service: str
+    action: str
+    result: str
+    duration_seconds: float | None = None
+    error: str | None = None
+
+
+class PresetActivationResponse(BaseModel):
+    preset: str
+    status: str
+    actions: list[PresetActionResult]
+    failed_at: int | None = None
+    total_duration_seconds: float
+
+
+class HealthResponse(BaseModel):
+    status: str
+    version: str
+
+
+class ConfigResponse(BaseModel):
+    poll_interval: int
+    host: str
+    port: int
+    log_level: str
+    services_count: int
+    presets_count: int
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    code: str

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patchbay</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        pb: {
+          'bg': '#0e1117',
+          'bg-sec': '#161b22',
+          'card': '#1c2129',
+          'card-hover': '#222830',
+          'border': '#2d333b',
+          'border-accent': '#3d444d',
+          'text': '#e6edf3',
+          'text-sec': '#8b949e',
+          'text-muted': '#6e7681',
+          'green': '#3fb950',
+          'green-dim': '#238636',
+          'yellow': '#d29922',
+          'red': '#f85149',
+          'blue': '#58a6ff',
+          'blue-dim': '#1f6feb',
+          'purple': '#bc8cff',
+          'toggle-off': '#30363d',
+        }
+      },
+      fontFamily: {
+        mono: ['DM Mono', 'monospace'],
+        sans: ['Outfit', 'sans-serif'],
+      }
+    }
+  }
+}
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(88, 166, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88, 166, 255, 0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  @keyframes toggle-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  @keyframes preset-progress { 0% { width: 0%; } 100% { width: 100%; } }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .animate-spin-slow { animation: spin 0.8s linear infinite; }
+  .animate-pulse-dot { animation: pulse-dot 1s ease-in-out infinite; }
+  .animate-toggle-pulse { animation: toggle-pulse 1s ease-in-out infinite; pointer-events: none; }
+  .animate-fadeInUp { animation: fadeInUp 0.35s ease forwards; opacity: 0; }
+
+  .preset-btn-activating::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: #58a6ff;
+    animation: preset-progress 3s ease-in-out forwards;
+    z-index: 2;
+  }
+
+  .toggle-knob {
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #2d333b;
+  }
+
+  .status-dot-glow-green { box-shadow: 0 0 5px #3fb950; }
+  .status-dot-glow-yellow { box-shadow: 0 0 5px #d29922; }
+  .status-dot-glow-red { box-shadow: 0 0 5px #f85149; }
+</style>
+</head>
+<body class="bg-pb-bg text-pb-text font-sans min-h-screen overflow-x-hidden">
+<div class="relative z-[1]">
+{% block content %}{% endblock %}
+</div>
+</body>
+</html>

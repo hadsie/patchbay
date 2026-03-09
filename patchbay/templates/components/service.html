@@ -1,0 +1,67 @@
+{% set s = service %}
+<div class="flex flex-wrap items-center px-3 sm:px-4 py-3 bg-pb-card transition-colors duration-150 gap-2 sm:gap-3 hover:bg-pb-card-hover [&+&]:border-t [&+&]:border-pb-border/50"
+     x-data="{ get svc() { return services['{{ s.name }}'] || {} } }">
+  <!-- Icon -->
+  <div class="text-lg w-6 sm:w-7 text-center shrink-0">{{ s.icon }}</div>
+
+  <!-- Info -->
+  <div class="flex-1 min-w-0 basis-[calc(100%-44px)] sm:basis-auto">
+    <div class="flex items-center gap-2">
+      {% if s.url %}
+      <a href="{{ s.url }}" target="_blank" rel="noopener" class="font-medium text-sm text-pb-text truncate hover:text-pb-blue hover:underline decoration-pb-blue/40 underline-offset-2">{{ s.name }}</a>
+      {% else %}
+      <span class="font-medium text-sm text-pb-text truncate">{{ s.name }}</span>
+      {% endif %}
+      <span class="font-mono text-[9px] px-1.5 py-px rounded-sm uppercase tracking-wider border shrink-0 {{ 'text-[#2496ed] border-[rgba(36,150,237,0.3)]' if s.type == 'docker' else 'text-pb-purple border-[rgba(188,140,255,0.3)]' }}">{{ s.type }}</span>
+    </div>
+    <div class="text-xs text-pb-text-muted font-light mt-px truncate">{{ s.description }}</div>
+  </div>
+
+  <!-- Status/controls row - wraps to second line on mobile -->
+  <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto pl-8 sm:pl-0">
+    <!-- Status chip -->
+    <div x-show="!((!svc.state || svc.state === 'unknown') && svc.health === 'n/a')"
+         class="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-0.5 rounded min-w-[88px] justify-center"
+         :class="statusClass(svc.state, svc.health)">
+      <span class="w-1.5 h-1.5 rounded-full shrink-0"
+            :class="dotClass(svc.state, svc.health)"></span>
+      <span x-text="statusLabel(svc.state)"></span>
+    </div>
+
+    <!-- Uptime -->
+    <span class="font-mono text-[11px] text-pb-text-muted w-[52px] text-right shrink-0 hidden sm:inline" x-text="svc.uptime || '\u2014'"></span>
+
+    <!-- Controls -->
+    <div class="flex items-center gap-2 shrink-0 ml-auto sm:ml-1">
+      <!-- Restart -->
+      <button
+        @click="restartService('{{ s.name }}')"
+        :disabled="!isRunning(svc.state) || !!activatingPreset"
+        :class="{
+          'opacity-25 cursor-not-allowed pointer-events-none': !isRunning(svc.state),
+          'animate-spin-slow': svc._restarting
+        }"
+        class="w-[30px] h-[30px] min-w-[30px] rounded-md border border-pb-border bg-transparent text-pb-text-muted cursor-pointer flex items-center justify-center text-sm transition-all duration-150 hover:text-pb-blue hover:border-pb-blue-dim hover:bg-[rgba(88,166,255,0.1)]"
+        title="Restart"
+      >&#x21bb;</button>
+
+      <!-- Toggle -->
+      <div
+        @click="toggleService('{{ s.name }}')"
+        :class="{
+          'bg-pb-green-dim border-pb-green': isRunning(svc.state),
+          'bg-pb-toggle-off border-transparent': !isRunning(svc.state),
+          'animate-toggle-pulse': svc._transitioning
+        }"
+        class="w-10 h-[22px] rounded-full cursor-pointer relative transition-colors duration-250 border shrink-0"
+        role="switch"
+        :aria-checked="isRunning(svc.state)"
+        tabindex="0"
+      >
+        <div class="toggle-knob w-4 h-4 rounded-full absolute top-[2px] transition-all duration-250"
+             :class="isRunning(svc.state) ? 'left-5 bg-white' : 'left-[3px] bg-pb-text-sec'"
+        ></div>
+      </div>
+    </div>
+  </div>
+</div>

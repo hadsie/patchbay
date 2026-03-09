@@ -1,0 +1,12 @@
+services:
+  patchbay:
+    build: .
+    container_name: patchbay
+    restart: unless-stopped
+    ports:
+      - "4848:4848"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/config:ro
+    environment:
+      - CONFIG_DIR=/config

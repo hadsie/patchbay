@@ -1,0 +1,47 @@
+# =============================================================================
+# Patchbay -- Service Definitions
+# =============================================================================
+
+services:
+  - name: llama-server
+    type: docker
+    target: llama-server
+    description: "llama.cpp inference server"
+    icon: "\U0001F999"
+    category: AI
+    url: "http://homelab.local:8080"
+    health_check:
+      endpoint: "http://localhost:8080/health"
+
+  - name: Open WebUI
+    type: docker
+    target: open-webui
+    description: "Chat interface for local and remote LLMs"
+    icon: "\U0001F4AC"
+    category: AI
+    url: "http://homelab.local:3000"
+
+  - name: Immich
+    type: docker
+    target: immich-server
+    description: "Self-hosted photo and video management"
+    icon: "\U0001F4F7"
+    category: Media
+    url: "http://homelab.local:2283"
+
+  - name: sshd
+    type: systemd
+    target: sshd.service
+    description: "OpenSSH server daemon"
+    icon: "\U0001F4E1"
+    category: Infrastructure
+
+  - name: ComfyUI
+    type: systemd
+    target: comfyui
+    description: "AI image generation interface"
+    icon: "\U0001F3A8"
+    category: AI
+    url: "http://homelab.local:8188"
+    health_check:
+      endpoint: "http://localhost:8188/system_stats"

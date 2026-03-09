@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+<div x-data="dashboard()" x-init="init()">
+
+  {% include "components/header.html" %}
+
+  <main class="max-w-[960px] mx-auto px-3 sm:px-6 pt-6 pb-16">
+
+    {% include "components/presets.html" %}
+
+    {% for category, svc_list in categories.items() %}
+    <section class="mb-6 animate-fadeInUp" style="animation-delay: {{ loop.index0 * 0.04 }}s">
+      <div class="section-label font-mono text-[11px] font-normal text-pb-text-muted uppercase tracking-[1.5px] mb-2.5 flex items-center gap-2">{{ category }}</div>
+      <div class="flex flex-col rounded-[10px] overflow-hidden border border-pb-border">
+        {% for service in svc_list %}
+        {% include "components/service.html" %}
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+
+  </main>
+
+  {% include "components/footer.html" %}
+
+  <!-- Error toast -->
+  <div x-show="error" x-transition
+       class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-pb-red/90 text-white px-4 py-2 rounded-lg font-mono text-xs z-50 max-w-sm text-center">
+    <span x-text="error"></span>
+  </div>
+</div>
+
+<script>
+window.__PATCHBAY_INIT__ = {{ init_data | safe }};
+
+function dashboard() {
+  return {
+    services: {},
+    presets: [],
+    activePreset: null,
+    activatingPreset: null,
+    reloading: false,
+    pollTimer: null,
+    operationInProgress: false,
+    error: null,
+
+    init() {
+      const data = window.__PATCHBAY_INIT__;
+      this.services = data.services;
+      this.presets = data.presets;
+      // Add transient flags
+      for (const name in this.services) {
+        this.services[name]._transitioning = false;
+        this.services[name]._restarting = false;
+      }
+      this.startPolling(data.pollInterval);
+    },
+
+    startPolling(interval) {
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      this.pollTimer = setInterval(() => this.poll(), interval * 1000);
+    },
+
+    async poll() {
+      if (this.operationInProgress) return;
+      try {
+        const resp = await fetch('/api/services');
+        if (!resp.ok) return;
+        const list = await resp.json();
+        for (const s of list) {
+          if (this.services[s.name]) {
+            const prev = this.services[s.name];
+            s._transitioning = prev._transitioning;
+            s._restarting = prev._restarting;
+          }
+          this.services[s.name] = s;
+        }
+      } catch (e) {
+        // Polling failure is silent
+      }
+    },
+
+    isRunning(state) {
+      return ['running', 'active', 'activating', 'restarting'].includes(state);
+    },
+
+    statusClass(state, health) {
+      if (health === 'unhealthy') return 'text-pb-yellow bg-[rgba(210,153,34,0.15)]';
+      if (['failed', 'dead'].includes(state)) return 'text-pb-red bg-[rgba(248,81,73,0.12)]';
+      if (['restarting', 'activating', 'deactivating'].includes(state)) return 'text-pb-blue bg-[rgba(88,166,255,0.1)]';
+      if (this.isRunning(state)) return 'text-pb-green bg-[rgba(63,185,80,0.15)]';
+      return 'text-pb-text-muted bg-[rgba(110,118,129,0.08)]';
+    },
+
+    dotClass(state, health) {
+      if (health === 'unhealthy') return 'bg-pb-yellow status-dot-glow-yellow';
+      if (['failed', 'dead'].includes(state)) return 'bg-pb-red status-dot-glow-red';
+      if (['restarting', 'activating', 'deactivating'].includes(state)) return 'bg-pb-blue animate-pulse-dot';
+      if (this.isRunning(state)) return 'bg-pb-green status-dot-glow-green';
+      return 'bg-pb-text-muted';
+    },
+
+    statusLabel(state) {
+      return state || 'unknown';
+    },
+
+    async toggleService(name) {
+      if (this.activatingPreset) return;
+      const svc = this.services[name];
+      if (!svc) return;
+      const running = this.isRunning(svc.state);
+      const action = running ? 'stop' : 'start';
+
+      svc._transitioning = true;
+      this.operationInProgress = true;
+
+      try {
+        const resp = await fetch(`/api/services/${encodeURIComponent(name)}/${action}`, { method: 'POST' });
+        const result = await resp.json();
+        if (result.result === 'error') {
+          this.showError(result.error || `Failed to ${action} ${name}`);
+        } else if (result.current_state) {
+          svc.state = result.current_state;
+        }
+      } catch (e) {
+        this.showError(`Failed to ${action} ${name}`);
+      } finally {
+        svc._transitioning = false;
+        this.operationInProgress = false;
+        this.poll();
+      }
+    },
+
+    async restartService(name) {
+      if (this.activatingPreset) return;
+      const svc = this.services[name];
+      if (!svc || !this.isRunning(svc.state)) return;
+
+      svc._restarting = true;
+      this.operationInProgress = true;
+
+      try {
+        const resp = await fetch(`/api/services/${encodeURIComponent(name)}/restart`, { method: 'POST' });
+        const result = await resp.json();
+        if (result.result === 'error') {
+          this.showError(result.error || `Failed to restart ${name}`);
+        } else if (result.current_state) {
+          svc.state = result.current_state;
+        }
+      } catch (e) {
+        this.showError(`Failed to restart ${name}`);
+      } finally {
+        svc._restarting = false;
+        this.operationInProgress = false;
+        this.poll();
+      }
+    },
+
+    async activatePreset(name) {
+      if (this.activatingPreset) return;
+      this.activatingPreset = name;
+      this.operationInProgress = true;
+
+      try {
+        const resp = await fetch(`/api/presets/${encodeURIComponent(name)}/activate`, { method: 'POST' });
+        const result = await resp.json();
+        if (result.status === 'completed') {
+          this.activePreset = name;
+        } else {
+          const failedAction = result.actions[result.failed_at];
+          this.showError(`Preset "${name}" failed at ${failedAction.service}: ${failedAction.error || 'unknown error'}`);
+        }
+      } catch (e) {
+        this.showError(`Failed to activate preset "${name}"`);
+      } finally {
+        this.activatingPreset = null;
+        this.operationInProgress = false;
+        this.poll();
+      }
+    },
+
+    async reloadConfig() {
+      this.reloading = true;
+      try {
+        const resp = await fetch('/api/config/reload', { method: 'POST' });
+        const result = await resp.json();
+        if (result.error) {
+          this.showError(result.error);
+        }
+      } catch (e) {
+        this.showError('Failed to reload config');
+      } finally {
+        this.reloading = false;
+        this.poll();
+      }
+    },
+
+    showError(msg) {
+      this.error = msg;
+      setTimeout(() => { this.error = null; }, 5000);
+    }
+  };
+}
+</script>
+{% endblock %}

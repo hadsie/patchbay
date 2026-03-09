@@ -1,0 +1,57 @@
+# =============================================================================
+# Patchbay -- Preset Definitions
+# =============================================================================
+
+presets:
+  - name: LLM Chat
+    description: "Inference server + chat UI for text generation"
+    icon: "\U0001F4AC"
+    actions:
+      - service: ComfyUI
+        action: stop
+      - service: llama-server
+        action: start
+      - service: Open WebUI
+        action: start
+
+  - name: Image Generation
+    description: "ComfyUI for Stable Diffusion workflows"
+    icon: "\U0001F3A8"
+    actions:
+      - service: llama-server
+        action: stop
+      - service: Docling
+        action: stop
+      - service: ComfyUI
+        action: start
+
+  - name: Document Processing
+    description: "Docling + llama-server for document analysis"
+    icon: "\U0001F4C4"
+    actions:
+      - service: ComfyUI
+        action: stop
+      - service: Docling
+        action: start
+      - service: llama-server
+        action: start
+
+  - name: Switch LLM Model
+    description: "Restart llama-server to load a different model"
+    icon: "\U0001F501"
+    actions:
+      - service: llama-server
+        action: restart
+
+  - name: All AI Off
+    description: "Stop all GPU-intensive services to free resources"
+    icon: "\U0001F50C"
+    actions:
+      - service: llama-server
+        action: stop
+      - service: ComfyUI
+        action: stop
+      - service: Docling
+        action: stop
+      - service: Ollama
+        action: stop

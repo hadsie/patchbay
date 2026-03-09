@@ -1,0 +1,13 @@
+# =============================================================================
+# Patchbay -- Global Settings
+# =============================================================================
+
+# How often the dashboard polls for service status (seconds)
+poll_interval: 30
+
+# API server bind address and port
+host: "127.0.0.1"
+port: 4848
+
+# Log level: debug, info, warning, error
+log_level: info

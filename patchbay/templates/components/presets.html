@@ -1,0 +1,20 @@
+<section class="mb-8">
+  <div class="section-label font-mono text-[11px] font-normal text-pb-text-muted uppercase tracking-[1.5px] mb-2.5 flex items-center gap-2">Presets</div>
+  <div class="flex flex-wrap gap-2">
+    {% for preset in presets %}
+    <button
+      @click="activatePreset('{{ preset.name }}')"
+      :class="{
+        'border-pb-blue-dim bg-[rgba(88,166,255,0.1)]': activePreset === '{{ preset.name }}',
+        'preset-btn-activating': activatingPreset === '{{ preset.name }}',
+        'opacity-50 pointer-events-none': activatingPreset && activatingPreset !== '{{ preset.name }}'
+      }"
+      :disabled="!!activatingPreset"
+      class="relative overflow-hidden flex items-center gap-2 px-4 py-2.5 rounded-lg border border-pb-border bg-pb-card text-pb-text cursor-pointer transition-all duration-200 font-sans text-[13px] font-medium hover:border-pb-blue-dim hover:bg-pb-card-hover hover:-translate-y-px"
+    >
+      <span class="text-[15px]">{{ preset.icon }}</span>
+      <span>{{ preset.name }}</span>
+    </button>
+    {% endfor %}
+  </div>
+</section>
