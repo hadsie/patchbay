@@ -16,12 +16,13 @@ logger = logging.getLogger(__name__)
 TIMEOUT = 30
 
 
-def _run_systemctl(*args: str) -> subprocess.CompletedProcess[str]:
+def _run_systemctl(*args: str, sudo: bool = False) -> subprocess.CompletedProcess[str]:
+    cmd = ["sudo", "systemctl", *args] if sudo else ["systemctl", *args]
     try:
         return subprocess.run(
-            ["systemctl", *args],
+            cmd,
             capture_output=True,
-             text=True,
+            text=True,
             timeout=TIMEOUT,
         )
     except FileNotFoundError:
@@ -71,7 +72,7 @@ class SystemdBackend(ServiceBackend):
 
     async def _run_action(self, action: str, target: str) -> None:
         try:
-            result = await asyncio.to_thread(_run_systemctl, action, target)
+            result = await asyncio.to_thread(_run_systemctl, action, target, sudo=True)
         except subprocess.TimeoutExpired:
             raise ServiceActionError(f"Timed out running {action} on {target}")
         if result.returncode == 4:
