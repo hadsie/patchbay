@@ -169,7 +169,7 @@ class TestSystemdBackend:
         )
         backend = SystemdBackend()
         asyncio.get_event_loop().run_until_complete(backend.start("sshd.service"))
-        mock_run.assert_called_with("start", "sshd.service")
+        mock_run.assert_called_with("start", "sshd.service", sudo=True)
 
     @patch("patchbay.backends.systemd._run_systemctl")
     def test_action_failure(self, mock_run):

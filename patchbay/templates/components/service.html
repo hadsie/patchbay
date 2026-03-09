@@ -21,11 +21,16 @@
   <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto pl-8 sm:pl-0">
     <!-- Status chip -->
     <div x-show="!((!svc.state || svc.state === 'unknown') && svc.health === 'n/a')"
-         class="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-0.5 rounded min-w-[88px] justify-center"
+         class="flex items-center gap-1.5 font-mono text-[11px] px-2.5 py-0.5 rounded min-w-[88px] justify-center relative group/status"
          :class="statusClass(svc.state, svc.health)">
       <span class="w-1.5 h-1.5 rounded-full shrink-0"
             :class="dotClass(svc.state, svc.health)"></span>
       <span x-text="statusLabel(svc.state)"></span>
+      <!-- Health tooltip -->
+      <template x-if="healthTooltip(svc)">
+        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 rounded bg-[#1c2128] border border-pb-border text-[10px] font-mono text-pb-text-muted whitespace-nowrap opacity-0 group-hover/status:opacity-100 transition-opacity pointer-events-none z-50"
+             x-text="healthTooltip(svc)"></div>
+      </template>
     </div>
 
     <!-- Uptime -->

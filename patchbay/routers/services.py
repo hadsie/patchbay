@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from patchbay.backends.base import BackendError, ServiceBackend
 from patchbay.config import AppConfig, ServiceConfig
 from patchbay.health import HealthChecker, resolve_health
-from patchbay.models import ErrorResponse, ServiceActionResponse, ServiceStatus
+from patchbay.models import ErrorResponse, HealthDetail, ServiceActionResponse, ServiceStatus
 
 router = APIRouter(prefix="/api/services", tags=["services"])
 
@@ -52,6 +52,15 @@ async def _build_service_status(
     checker_result = health_checker.results.get(svc.name)
     health = resolve_health(svc, state, checker_result, docker_health)
 
+    health_detail = None
+    if checker_result and checker_result.status != "pending":
+        ms = checker_result.response_ms
+        health_detail = HealthDetail(
+            error=checker_result.error,
+            response_ms=round(ms, 1) if ms is not None else None,
+            last_check=checker_result.last_check or None,
+        )
+
     return ServiceStatus(
         name=svc.name,
         type=svc.type,
@@ -62,6 +71,7 @@ async def _build_service_status(
         url=svc.url,
         state=state,
         health=health,
+        health_detail=health_detail,
         uptime=uptime,
     )
 

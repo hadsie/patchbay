@@ -25,6 +25,7 @@ class HealthResult:
 class HealthChecker:
     def __init__(self) -> None:
         self._client: httpx.AsyncClient | None = None
+        self._config: AppConfig | None = None
         self._results: dict[str, HealthResult] = {}
         self._last_checked: dict[str, float] = {}
         self._task: asyncio.Task | None = None
@@ -36,12 +37,12 @@ class HealthChecker:
 
     async def start(self, config: AppConfig) -> None:
         self._client = httpx.AsyncClient()
+        self._config = config
         self._running = True
-        # Initialize pending results for services with health checks
         for svc in config.services:
             if svc.health_check:
                 self._results[svc.name] = HealthResult(status="pending")
-        self._task = asyncio.create_task(self._loop(config))
+        self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
         self._running = False
@@ -55,23 +56,24 @@ class HealthChecker:
             await self._client.aclose()
 
     async def update_config(self, config: AppConfig) -> None:
-        # Add pending results for new services with health checks
+        self._config = config
+        self._last_checked.clear()
         for svc in config.services:
             if svc.health_check and svc.name not in self._results:
                 self._results[svc.name] = HealthResult(status="pending")
-        # Remove results for services no longer in config
         current_names = {s.name for s in config.services if s.health_check}
         for name in list(self._results):
             if name not in current_names:
                 del self._results[name]
-                self._last_checked.pop(name, None)
 
-    async def _loop(self, config: AppConfig) -> None:
+    async def _loop(self) -> None:
         while self._running:
             try:
                 await asyncio.sleep(1)
+                if not self._config:
+                    continue
                 now = time.monotonic()
-                for svc in config.services:
+                for svc in self._config.services:
                     if not svc.health_check:
                         continue
                     interval = svc.health_check.interval

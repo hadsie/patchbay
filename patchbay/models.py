@@ -3,6 +3,12 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class HealthDetail(BaseModel):
+    error: str | None = None
+    response_ms: float | None = None
+    last_check: float | None = None
+
+
 class ServiceStatus(BaseModel):
     name: str
     type: str
@@ -13,6 +19,7 @@ class ServiceStatus(BaseModel):
     url: str | None
     state: str
     health: str
+    health_detail: HealthDetail | None = None
     uptime: str | None
 
 

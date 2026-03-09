@@ -11,7 +11,7 @@
     {% for category, svc_list in categories.items() %}
     <section class="mb-6 animate-fadeInUp" style="animation-delay: {{ loop.index0 * 0.04 }}s">
       <div class="section-label font-mono text-[11px] font-normal text-pb-text-muted uppercase tracking-[1.5px] mb-2.5 flex items-center gap-2">{{ category }}</div>
-      <div class="flex flex-col rounded-[10px] overflow-hidden border border-pb-border">
+      <div class="flex flex-col rounded-[10px] border border-pb-border [&>:first-child]:rounded-t-[10px] [&>:last-child]:rounded-b-[10px]">
         {% for service in svc_list %}
         {% include "components/service.html" %}
         {% endfor %}
@@ -102,6 +102,14 @@ function dashboard() {
 
     statusLabel(state) {
       return state || 'unknown';
+    },
+
+    healthTooltip(svc) {
+      const d = svc.health_detail;
+      if (!d) return null;
+      if (d.error) return d.error;
+      if (d.response_ms != null) return `${d.response_ms}ms`;
+      return null;
     },
 
     async toggleService(name) {
