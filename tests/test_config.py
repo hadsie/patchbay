@@ -12,7 +12,7 @@ class TestGlobalConfig:
     def test_defaults(self):
         cfg = GlobalConfig()
         assert cfg.poll_interval == 5
-        assert cfg.host == "0.0.0.0"
+        assert cfg.host == "127.0.0.1"
         assert cfg.port == 4848
         assert cfg.log_level == "info"
 

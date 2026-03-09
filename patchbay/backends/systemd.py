@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
-from datetime import UTC, datetime
+from datetime import datetime
 
 from patchbay.backends.base import (
     ServiceActionError,
@@ -28,12 +28,19 @@ def _run_systemctl(*args: str) -> subprocess.CompletedProcess[str]:
         raise ServiceActionError("systemctl not found; systemd is not available on this system")
 
 def _format_uptime(timestamp_str: str) -> str | None:
+    """Parse a systemctl ActiveEnterTimestamp and return a human-readable uptime.
+
+    systemctl returns timestamps in the system's local timezone, so we parse as
+    naive local time and compare against datetime.now() (also naive local time).
+    """
     if not timestamp_str.strip():
         return None
     try:
-        start = datetime.strptime(timestamp_str.strip(), "%a %Y-%m-%d %H:%M:%S %Z")
-        start = start.replace(tzinfo=UTC)
-        delta = datetime.now(UTC) - start
+        # Strip the timezone abbreviation -- we treat both sides as local time
+        parts = timestamp_str.strip().rsplit(" ", 1)
+        ts = parts[0] if len(parts) == 2 else timestamp_str.strip()
+        start = datetime.strptime(ts, "%a %Y-%m-%d %H:%M:%S")
+        delta = datetime.now() - start
         total_seconds = int(delta.total_seconds())
         if total_seconds < 0:
             return None

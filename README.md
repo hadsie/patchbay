@@ -106,19 +106,51 @@ HTTP health checks run in the background at the configured interval and only tar
 
 ### Docker
 
-The included `compose.yml` mounts the Docker socket so Patchbay can manage containers:
+The included `compose.yml` mounts the Docker socket and the `config/` directory into the container:
 
 ```bash
 docker compose up -d --build
 ```
 
+Your mounted `config/config.yml` must set `host: "0.0.0.0"` so the server is reachable from outside the container. The default (`127.0.0.1`) only listens on the container's loopback and won't be accessible on the mapped port.
+
 When running in Docker, Patchbay can only manage Docker containers. For systemd unit management, run Patchbay directly on the host.
 
 ### Direct install (Docker + systemd)
 
-To manage both Docker containers and systemd units, run directly on the host as a systemd service:
+To manage both Docker containers and systemd units, run directly on the host.
+
+Create a dedicated user and give it Docker access:
+
+```bash
+sudo useradd -r -s /usr/sbin/nologin patchbay
+sudo usermod -aG docker patchbay
+```
+
+If you only need Docker management, that's sufficient. To also manage systemd units, create a sudoers rule that allows the patchbay user to run `systemctl start`, `stop`, and `restart` without a password:
+
+```bash
+sudo visudo -f /etc/sudoers.d/patchbay
+```
+
+```
+patchbay ALL=(ALL) NOPASSWD: /usr/bin/systemctl start *, /usr/bin/systemctl stop *, /usr/bin/systemctl restart *
+```
+
+Clone the repo and install:
+
+```bash
+sudo git clone https://github.com/hadsie/patchbay.git /opt/patchbay
+cd /opt/patchbay
+sudo python -m venv .venv
+sudo .venv/bin/pip install .
+sudo chown -R patchbay:patchbay /opt/patchbay
+```
+
+Create the systemd service:
 
 ```ini
+# /etc/systemd/system/patchbay.service
 [Unit]
 Description=Patchbay Service Dashboard
 After=network.target docker.service
@@ -135,9 +167,10 @@ User=patchbay
 WantedBy=multi-user.target
 ```
 
-The `patchbay` user needs:
-- Membership in the `docker` group (for Docker socket access)
-- Sudo or polkit permissions for `systemctl start/stop/restart` on managed units
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now patchbay
+```
 
 ### Docker socket security
 
