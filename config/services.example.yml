@@ -1,6 +1,25 @@
 # =============================================================================
 # Patchbay -- Service Definitions
 # =============================================================================
+#
+# Each service has these fields:
+#   name          (required)  Unique display name, used as identifier in API and presets
+#   type          (required)  "docker", "compose", or "systemd"
+#   target        (required)  docker: container name
+#                              compose: absolute path to project dir (with compose.yml)
+#                              systemd: unit name (e.g. "sshd.service")
+#   description   (optional)  Short text shown on the dashboard (default: "")
+#   icon          (optional)  Emoji for the dashboard (default: "")
+#   category      (optional)  Grouping label (default: "Uncategorized")
+#   url           (optional)  Clickable link to the service's web UI
+#   health_check  (optional)  HTTP health check -- see below
+#
+# health_check sub-fields:
+#   endpoint      (required)  Full URL to check
+#   method        (optional)  HTTP method (default: GET)
+#   expected      (optional)  Expected status code (default: 200)
+#   timeout       (optional)  Seconds (default: 5)
+#   interval      (optional)  Seconds between checks (default: 30)
 
 services:
   - name: llama-server
@@ -45,3 +64,13 @@ services:
     url: "http://homelab.local:8188"
     health_check:
       endpoint: "http://localhost:8188/system_stats"
+
+  - name: ERPNext
+    type: compose
+    target: /opt/stacks/erpnext
+    description: "Full-stack ERP suite"
+    icon: "\U0001F4CA"
+    category: Business
+    url: "http://homelab.local:8069"
+    health_check:
+      endpoint: "http://localhost:8069/api/method/ping"

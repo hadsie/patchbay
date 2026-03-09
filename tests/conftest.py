@@ -52,6 +52,11 @@ services:
     target: test.service
     description: "A test systemd service"
     category: Test
+  - name: test-compose
+    type: compose
+    target: /tmp/test-compose-project
+    description: "A test compose service"
+    category: Test
 """
     )
     (config_dir / "presets.yml").write_text(
@@ -90,7 +95,14 @@ def mock_systemd_backend() -> MockBackend:
 
 
 @pytest.fixture
-def test_client(config_dir: Path, mock_docker_backend, mock_systemd_backend) -> TestClient:
+def mock_compose_backend() -> MockBackend:
+    return MockBackend(states={"/tmp/test-compose-project": "running"})
+
+
+@pytest.fixture
+def test_client(
+    config_dir: Path, mock_docker_backend, mock_systemd_backend, mock_compose_backend
+) -> TestClient:
     import os
 
     os.environ["CONFIG_DIR"] = str(config_dir)
@@ -104,6 +116,7 @@ def test_client(config_dir: Path, mock_docker_backend, mock_systemd_backend) -> 
         app.state.backends = {
             "docker": mock_docker_backend,
             "systemd": mock_systemd_backend,
+            "compose": mock_compose_backend,
         }
         app.state.health_checker = HealthChecker()
         yield client

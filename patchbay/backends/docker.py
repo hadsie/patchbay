@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
 
 from patchbay.backends.base import (
     BackendUnavailableError,
@@ -10,27 +9,12 @@ from patchbay.backends.base import (
     ServiceBackend,
     ServiceNotFoundError,
 )
+from patchbay.backends.util import format_uptime
 
 logger = logging.getLogger(__name__)
 
-
-def _format_uptime(started_at: str) -> str | None:
-    try:
-        start = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
-        delta = datetime.now(UTC) - start
-        total_seconds = int(delta.total_seconds())
-        if total_seconds < 0:
-            return None
-        days = total_seconds // 86400
-        hours = (total_seconds % 86400) // 3600
-        minutes = (total_seconds % 3600) // 60
-        if days > 0:
-            return f"{days}d {hours}h"
-        if hours > 0:
-            return f"{hours}h {minutes}m"
-        return f"{minutes}m"
-    except (ValueError, TypeError):
-        return None
+# Re-export for backwards compatibility with tests
+_format_uptime = format_uptime
 
 
 class DockerBackend(ServiceBackend):
@@ -106,4 +90,4 @@ class DockerBackend(ServiceBackend):
         if container.status != "running":
             return None
         started_at = container.attrs.get("State", {}).get("StartedAt", "")
-        return _format_uptime(started_at)
+        return format_uptime(started_at)

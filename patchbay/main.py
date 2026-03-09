@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from patchbay import __version__
 from patchbay.backends.base import BackendError, BackendUnavailableError, ServiceNotFoundError
+from patchbay.backends.compose import ComposeBackend
 from patchbay.backends.docker import DockerBackend
 from patchbay.backends.systemd import SystemdBackend
 from patchbay.config import settings
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     backends: dict = {
         "docker": DockerBackend(),
         "systemd": SystemdBackend(),
+        "compose": ComposeBackend(),
     }
     app.state.backends = backends
 
@@ -86,9 +88,7 @@ def create_app() -> FastAPI:
             except BackendError:
                 state = "unknown"
             try:
-                docker_health = (
-                    await backend.get_health_info(svc.target) if svc.type == "docker" else None
-                )
+                docker_health = await backend.get_health_info(svc.target)
             except BackendError:
                 docker_health = None
             try:

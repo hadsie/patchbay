@@ -137,4 +137,6 @@ def resolve_health(
         return mapping.get(docker_health, "unhealthy")
     if state in RUNNING_STATES:
         return "healthy"
+    if state == "partial":
+        return "unhealthy"
     return "n/a"

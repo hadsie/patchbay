@@ -23,7 +23,7 @@ class HealthCheckConfig(BaseModel):
 
 class ServiceConfig(BaseModel):
     name: str
-    type: Literal["docker", "systemd"]
+    type: Literal["docker", "systemd", "compose"]
     target: str
     description: str = ""
     icon: str = ""

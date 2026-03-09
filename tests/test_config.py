@@ -36,7 +36,7 @@ class TestGlobalConfig:
 class TestConfigLoading:
     def test_loads_valid_config(self, config_dir: Path):
         config = _load_and_validate(config_dir)
-        assert len(config.services) == 2
+        assert len(config.services) == 3
         assert len(config.presets) == 1
         assert config.global_config.poll_interval == 5
 
@@ -46,6 +46,12 @@ class TestConfigLoading:
         assert svc.name == "test-svc"
         assert svc.type == "docker"
         assert svc.category == "Test"
+
+    def test_compose_type_accepted(self, config_dir: Path):
+        config = _load_and_validate(config_dir)
+        compose_svcs = [s for s in config.services if s.type == "compose"]
+        assert len(compose_svcs) == 1
+        assert compose_svcs[0].target == "/tmp/test-compose-project"
 
     def test_empty_target_rejected(self, tmp_path: Path):
         write_config_files(
@@ -149,7 +155,7 @@ class TestConfigReload:
         holder = ConfigHolder()
         holder.load(config_dir)
         config = holder.reload(config_dir)
-        assert len(config.services) == 2
+        assert len(config.services) == 3
 
     def test_reload_keeps_old_on_failure(self, config_dir: Path):
         holder = ConfigHolder()
@@ -165,7 +171,7 @@ class TestConfigReload:
             holder.reload(config_dir)
 
         # Old config still intact
-        assert len(holder.config.services) == 2
+        assert len(holder.config.services) == 3
 
     def test_load_raises_when_not_loaded(self):
         holder = ConfigHolder()

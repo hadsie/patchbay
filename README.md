@@ -1,12 +1,12 @@
 # Patchbay
 
-A lightweight, mobile-first service control dashboard for Docker containers and systemd units. Toggle services on/off, restart them, and activate presets -- named configurations that orchestrate stop/start/restart sequences across multiple services.
+A lightweight, mobile-first service control dashboard for Docker containers, Docker Compose projects, and systemd units. Toggle services on/off, restart them, and activate presets -- named configurations that orchestrate stop/start/restart sequences across multiple services.
 
 Built for homelabs and workstations where GPU-heavy or RAM-heavy services compete for resources and can't all run simultaneously.
 
 ## Features
 
-- Unified dashboard for both Docker containers and systemd units
+- Unified dashboard for Docker containers, Compose projects, and systemd units
 - One-click presets that orchestrate ordered stop/start/restart sequences
 - Mobile-first responsive UI (dark theme, works at 320px+)
 - REST API with auto-generated OpenAPI docs at `/docs`
@@ -16,7 +16,8 @@ Built for homelabs and workstations where GPU-heavy or RAM-heavy services compet
 ## Requirements
 
 - Python 3.11+
-- Docker (for managing Docker containers)
+- Docker (for managing Docker containers and Compose projects)
+- Docker Compose v2 (for managing multi-container Compose stacks)
 - systemd (for managing systemd units, Linux only)
 
 ## Quick Start
@@ -36,6 +37,35 @@ cp config/services.example.yml config/services.yml
 cp config/presets.example.yml config/presets.yml
 $EDITOR config/config.yml config/services.yml config/presets.yml
 ```
+
+Each service in `services.yml` needs a `name`, `type`, and `target`:
+
+```yaml
+services:
+  # Docker container (target = container name)
+  - name: Ollama
+    type: docker
+    target: ollama
+    description: "LLM model server"
+    category: AI
+
+  # Docker Compose project (target = path to project directory)
+  - name: ERPNext
+    type: compose
+    target: /opt/stacks/erpnext
+    description: "Full-stack ERP suite"
+    url: "http://homelab.local:8069"
+    health_check:
+      endpoint: "http://localhost:8069/api/method/ping"
+
+  # Systemd unit (target = unit name)
+  - name: sshd
+    type: systemd
+    target: sshd.service
+    description: "OpenSSH server daemon"
+```
+
+Optional fields: `description`, `icon` (emoji), `category` (grouping label, default `"Uncategorized"`), `url` (clickable link), `health_check` (with `endpoint`, `method`, `expected`, `timeout`, `interval`). See `services.example.yml` for full details.
 
 Start the server:
 
@@ -99,6 +129,7 @@ Patchbay resolves service health using a priority chain:
 2. **HTTP health check** configured in `services.yml` -- uses the check result
 3. **Docker HEALTHCHECK** defined in the container's Dockerfile/compose -- uses Docker's built-in health status
 4. **Running with no check configured** -- assumes `"healthy"`
+5. **Partial** (compose only, some containers down) -- `"unhealthy"` unless an HTTP check overrides
 
 HTTP health checks run in the background at the configured interval and only target services that are currently running.
 
@@ -114,11 +145,11 @@ docker compose up -d --build
 
 Your mounted `config/config.yml` must set `host: "0.0.0.0"` so the server is reachable from outside the container. The default (`127.0.0.1`) only listens on the container's loopback and won't be accessible on the mapped port.
 
-When running in Docker, Patchbay can only manage Docker containers. For systemd unit management, run Patchbay directly on the host.
+When running in Docker, Patchbay can manage Docker containers and Compose projects but not systemd units. For systemd unit management, run Patchbay directly on the host.
 
-### Direct install (Docker + systemd)
+### Direct install (Docker + Compose + systemd)
 
-To manage both Docker containers and systemd units, run directly on the host.
+To manage Docker containers, Compose projects, and systemd units, run directly on the host.
 
 Create a dedicated user and give it Docker access:
 

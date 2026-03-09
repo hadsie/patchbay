@@ -8,9 +8,9 @@ class TestListServices:
         resp = test_client.get("/api/services")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
+        assert len(data) == 3
         names = {s["name"] for s in data}
-        assert names == {"test-svc", "test-systemd"}
+        assert names == {"test-svc", "test-systemd", "test-compose"}
 
     def test_service_has_expected_fields(self, test_client):
         resp = test_client.get("/api/services")

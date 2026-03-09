@@ -63,3 +63,13 @@ class TestResolveHealth:
     def test_active_no_check_assumes_healthy(self):
         svc = _make_service(stype="systemd", target="test.service")
         assert resolve_health(svc, "active", None, None) == "healthy"
+
+    def test_partial_with_no_check_returns_unhealthy(self):
+        svc = _make_service(stype="compose", target="/opt/app")
+        assert resolve_health(svc, "partial", None, None) == "unhealthy"
+
+    def test_partial_with_http_check_uses_check_result(self):
+        hc = HealthCheckConfig(endpoint="http://localhost/health")
+        svc = _make_service(stype="compose", target="/opt/app", health_check=hc)
+        result = HealthResult(status="healthy")
+        assert resolve_health(svc, "partial", result, None) == "healthy"

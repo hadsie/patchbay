@@ -81,10 +81,11 @@ function dashboard() {
     },
 
     isRunning(state) {
-      return ['running', 'active', 'activating', 'restarting'].includes(state);
+      return ['running', 'active', 'activating', 'restarting', 'partial'].includes(state);
     },
 
     statusClass(state, health) {
+      if (state === 'partial') return 'text-pb-yellow bg-[rgba(210,153,34,0.15)]';
       if (health === 'unhealthy') return 'text-pb-yellow bg-[rgba(210,153,34,0.15)]';
       if (['failed', 'dead'].includes(state)) return 'text-pb-red bg-[rgba(248,81,73,0.12)]';
       if (['restarting', 'activating', 'deactivating'].includes(state)) return 'text-pb-blue bg-[rgba(88,166,255,0.1)]';
@@ -93,6 +94,7 @@ function dashboard() {
     },
 
     dotClass(state, health) {
+      if (state === 'partial') return 'bg-pb-yellow status-dot-glow-yellow';
       if (health === 'unhealthy') return 'bg-pb-yellow status-dot-glow-yellow';
       if (['failed', 'dead'].includes(state)) return 'bg-pb-red status-dot-glow-red';
       if (['restarting', 'activating', 'deactivating'].includes(state)) return 'bg-pb-blue animate-pulse-dot';

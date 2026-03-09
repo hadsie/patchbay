@@ -28,6 +28,7 @@ def _run_systemctl(*args: str, sudo: bool = False) -> subprocess.CompletedProces
     except FileNotFoundError:
         raise ServiceActionError("systemctl not found; systemd is not available on this system")
 
+
 def _format_uptime(timestamp_str: str) -> str | None:
     """Parse a systemctl ActiveEnterTimestamp and return a human-readable uptime.
 

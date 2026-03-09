@@ -40,7 +40,7 @@ async def _build_service_status(
         state = "unknown"
 
     try:
-        docker_health = await backend.get_health_info(svc.target) if svc.type == "docker" else None
+        docker_health = await backend.get_health_info(svc.target)
     except BackendError:
         docker_health = None
 
