@@ -192,7 +192,10 @@ function dashboard() {
     async reloadConfig() {
       this.reloading = true;
       try {
-        const resp = await fetch('/api/config/reload', { method: 'POST' });
+        const [resp] = await Promise.all([
+          fetch('/api/config/reload', { method: 'POST' }),
+          new Promise(r => setTimeout(r, 600)),
+        ]);
         const result = await resp.json();
         if (result.error) {
           this.showError(result.error);

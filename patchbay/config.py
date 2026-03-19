@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, HttpUrl, ValidationError, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,7 @@ class ConfigHolder:
         config_dir = config_dir or os.environ.get("CONFIG_DIR", DEFAULT_CONFIG_DIR)
         try:
             new_config = _load_and_validate(config_dir)
-        except (ValueError, yaml.YAMLError, OSError) as exc:
+        except (ValueError, ValidationError, yaml.YAMLError, OSError) as exc:
             logger.warning("Config reload failed, keeping old config: %s", exc)
             raise
         self._config = new_config

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from yaml import YAMLError
 
 from patchbay import __version__
 from patchbay.config import settings
@@ -36,7 +38,7 @@ async def reload_config(request: Request):
         if hasattr(request.app.state, "health_checker"):
             await request.app.state.health_checker.update_config(new_config)
         return {"status": "ok", "message": "Config reloaded successfully"}
-    except (ValueError, OSError) as exc:
+    except (ValueError, ValidationError, YAMLError, OSError) as exc:
         return JSONResponse(
             status_code=400,
             content={"error": str(exc), "code": "CONFIG_RELOAD_FAILED"},

@@ -4,6 +4,8 @@ A lightweight, mobile-first service control dashboard for Docker containers, Doc
 
 Built for homelabs and workstations where GPU-heavy or RAM-heavy services compete for resources and can't all run simultaneously.
 
+<img src="assets/screenshot.jpg" alt="Patchbay dashboard">
+
 ## Features
 
 - Unified dashboard for Docker containers, Compose projects, and systemd units
