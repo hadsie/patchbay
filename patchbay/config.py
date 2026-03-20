@@ -30,6 +30,7 @@ class ServiceConfig(BaseModel):
     category: str = "Uncategorized"
     url: str | None = None
     health_check: HealthCheckConfig | None = None
+    auth: ResourceAuth | None = None
 
     @field_validator("target")
     @classmethod
@@ -49,6 +50,7 @@ class PresetConfig(BaseModel):
     description: str = ""
     icon: str = ""
     actions: list[PresetActionConfig]
+    auth: ResourceAuth | None = None
 
     @field_validator("actions")
     @classmethod
@@ -58,11 +60,44 @@ class PresetConfig(BaseModel):
         return v
 
 
+class PermissionRule(BaseModel):
+    allow: list[str] = ["*"]
+    deny: list[str] = []
+
+
+class RoleConfig(BaseModel):
+    groups: list[str]
+
+
+class AuthConfig(BaseModel):
+    enabled: bool = False
+    user_header: str = "X-Forwarded-User"
+    groups_header: str = "X-Forwarded-Groups"
+    group_separator: str = "|"
+    roles: dict[str, RoleConfig] = {}
+    view: PermissionRule = PermissionRule()
+    control: PermissionRule = PermissionRule(allow=["admin"], deny=[])
+    unauthenticated: str = "deny"
+
+    @field_validator("group_separator")
+    @classmethod
+    def separator_not_empty(cls, v: str) -> str:
+        if not v:
+            raise ValueError("group_separator must be a non-empty string")
+        return v
+
+
+class ResourceAuth(BaseModel):
+    view: PermissionRule | None = None
+    control: PermissionRule | None = None
+
+
 class GlobalConfig(BaseModel):
     poll_interval: int = 5
     host: str = "127.0.0.1"
     port: int = 4848
     log_level: Literal["debug", "info", "warning", "error"] = "info"
+    auth: AuthConfig = AuthConfig()
 
     @field_validator("poll_interval")
     @classmethod
@@ -109,6 +144,40 @@ class AppConfig(BaseModel):
                 continue
             valid_presets.append(preset)
         self.presets = valid_presets
+
+        # Auth validation
+        auth = self.global_config.auth
+        if auth.enabled:
+            if not auth.roles:
+                raise ValueError("auth.enabled is true but no roles are defined")
+            if auth.unauthenticated != "deny" and auth.unauthenticated not in auth.roles:
+                raise ValueError(
+                    f"auth.unauthenticated references undefined role: {auth.unauthenticated!r}"
+                )
+
+            defined_roles = set(auth.roles.keys())
+            all_refs: set[str] = set()
+            for rule in (auth.view, auth.control):
+                all_refs.update(rule.allow)
+                all_refs.update(rule.deny)
+            for svc in self.services:
+                if svc.auth:
+                    for rule in (svc.auth.view, svc.auth.control):
+                        if rule:
+                            all_refs.update(rule.allow)
+                            all_refs.update(rule.deny)
+            for preset in self.presets:
+                if preset.auth:
+                    for rule in (preset.auth.view, preset.auth.control):
+                        if rule:
+                            all_refs.update(rule.allow)
+                            all_refs.update(rule.deny)
+            for ref in all_refs:
+                if ref != "*" and ref not in defined_roles:
+                    logger.warning(
+                        "Role %r referenced in permissions but not defined in auth.roles",
+                        ref,
+                    )
 
         return self
 

@@ -41,9 +41,9 @@
       <!-- Restart -->
       <button
         @click="restartService('{{ s.name }}')"
-        :disabled="!isRunning(svc.state) || !!activatingPreset"
+        :disabled="!isRunning(svc.state) || !!activatingPreset || svc.can_control === false"
         :class="{
-          'opacity-25 cursor-not-allowed pointer-events-none': !isRunning(svc.state),
+          'opacity-25 cursor-not-allowed pointer-events-none': !isRunning(svc.state) || svc.can_control === false,
           'animate-spin-slow': svc._restarting
         }"
         class="w-[30px] h-[30px] min-w-[30px] rounded-md border border-pb-border bg-transparent text-pb-text-muted cursor-pointer flex items-center justify-center text-sm transition-all duration-150 hover:text-pb-blue hover:border-pb-blue-dim hover:bg-[rgba(88,166,255,0.1)]"
@@ -52,11 +52,12 @@
 
       <!-- Toggle -->
       <div
-        @click="toggleService('{{ s.name }}')"
+        @click="if (svc.can_control !== false) toggleService('{{ s.name }}')"
         :class="{
           'bg-pb-green-dim border-pb-green': isRunning(svc.state),
           'bg-pb-toggle-off border-transparent': !isRunning(svc.state),
-          'animate-toggle-pulse': svc._transitioning
+          'animate-toggle-pulse': svc._transitioning,
+          'opacity-50 pointer-events-none': svc.can_control === false
         }"
         class="w-10 h-[22px] rounded-full cursor-pointer relative transition-colors duration-250 border shrink-0"
         role="switch"

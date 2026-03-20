@@ -21,6 +21,7 @@ class ServiceStatus(BaseModel):
     health: str
     health_detail: HealthDetail | None = None
     uptime: str | None
+    can_control: bool = True
 
 
 class ServiceActionResponse(BaseModel):
@@ -43,6 +44,7 @@ class PresetInfo(BaseModel):
     description: str
     icon: str
     actions: list[PresetActionInfo]
+    can_control: bool = True
 
 
 class PresetActionResult(BaseModel):

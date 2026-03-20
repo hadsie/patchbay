@@ -11,3 +11,25 @@ port: 4848
 
 # Log level: debug, info, warning, error
 log_level: info
+
+# =============================================================================
+# Authentication (role-based access control via forward auth)
+# =============================================================================
+# Uncomment and configure to enable. Requires a reverse proxy (Authentik,
+# Authelia, OAuth2 Proxy, etc.) that sets identity headers on each request.
+#
+# auth:
+#   enabled: true
+#   user_header: "X-Forwarded-User"
+#   groups_header: "X-Forwarded-Groups"
+#   group_separator: "|"
+#   roles:
+#     admin:
+#       groups: ["patchbay-admins"]
+#     viewer:
+#       groups: ["patchbay-users"]
+#   view:
+#     allow: ["*"]
+#   control:
+#     allow: ["admin"]
+#   unauthenticated: deny

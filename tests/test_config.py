@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from patchbay.config import ConfigHolder, GlobalConfig, _load_and_validate
+from patchbay.config import AuthConfig, ConfigHolder, GlobalConfig, _load_and_validate
 from tests.conftest import write_config_files
 
 
@@ -148,6 +148,76 @@ class TestConfigLoading:
         config = _load_and_validate(tmp_path)
         assert config.global_config.poll_interval == 5
         assert config.global_config.port == 4848
+
+
+class TestAuthConfig:
+    def test_enabled_with_no_roles_errors(self, tmp_path: Path):
+        write_config_files(
+            tmp_path,
+            config_yml=("poll_interval: 5\nport: 4848\nauth:\n  enabled: true\n  roles: {}\n"),
+        )
+        with pytest.raises(ValueError, match="no roles are defined"):
+            _load_and_validate(tmp_path)
+
+    def test_undefined_unauthenticated_role_errors(self, tmp_path: Path):
+        write_config_files(
+            tmp_path,
+            config_yml=(
+                "poll_interval: 5\nport: 4848\n"
+                "auth:\n"
+                "  enabled: true\n"
+                "  roles:\n    admin:\n      groups: [admins]\n"
+                "  unauthenticated: nonexistent\n"
+            ),
+        )
+        with pytest.raises(ValueError, match="undefined role"):
+            _load_and_validate(tmp_path)
+
+    def test_empty_separator_errors(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            AuthConfig(group_separator="")
+
+    def test_undefined_role_in_permissions_warns(self, tmp_path: Path, caplog):
+        write_config_files(
+            tmp_path,
+            config_yml=(
+                "poll_interval: 5\nport: 4848\n"
+                "auth:\n"
+                "  enabled: true\n"
+                "  roles:\n    admin:\n      groups: [admins]\n"
+                "  control:\n    allow: [admin, phantom]\n"
+                "  unauthenticated: deny\n"
+            ),
+        )
+        _load_and_validate(tmp_path)
+        assert "phantom" in caplog.text
+
+    def test_per_resource_auth_parses(self, tmp_path: Path):
+        write_config_files(
+            tmp_path,
+            config_yml=(
+                "poll_interval: 5\nport: 4848\n"
+                "auth:\n"
+                "  enabled: true\n"
+                "  roles:\n    admin:\n      groups: [admins]\n"
+                "  unauthenticated: deny\n"
+            ),
+            services_yml=(
+                "services:\n"
+                "  - name: svc\n    type: docker\n    target: c\n"
+                "    auth:\n"
+                "      view:\n        allow: [admin]\n"
+                "      control:\n        allow: [admin]\n"
+            ),
+            presets_yml="presets: []\n",
+        )
+        config = _load_and_validate(tmp_path)
+        assert config.services[0].auth is not None
+        assert config.services[0].auth.view.allow == ["admin"]
+
+    def test_auth_disabled_by_default(self, config_dir: Path):
+        config = _load_and_validate(config_dir)
+        assert config.global_config.auth.enabled is False
 
 
 class TestConfigReload:

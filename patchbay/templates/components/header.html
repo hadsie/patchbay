@@ -3,6 +3,9 @@
     <img src="/static/logo.svg" alt="Patchbay" class="h-7 w-7">
     <span class="font-mono font-medium text-xl tracking-tight text-pb-text">Patchbay</span>
     <span class="font-mono text-xs text-pb-text-muted">{{ config.host }}:{{ config.port }}</span>
+    {% if auth_username %}
+    <span class="font-mono text-xs text-pb-text-muted ml-2">{{ auth_username }}</span>
+    {% endif %}
   </div>
   <button
     @click="reloadConfig()"

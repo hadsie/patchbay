@@ -5,6 +5,7 @@ import time
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from patchbay.auth import can_control, can_view, resolve_user
 from patchbay.backends.base import BackendError, ServiceBackend
 from patchbay.config import AppConfig, ServiceConfig
 from patchbay.health import HealthChecker, resolve_health
@@ -79,31 +80,48 @@ async def _build_service_status(
 @router.get("")
 async def list_services(request: Request) -> list[ServiceStatus]:
     config, backends, health_checker = _get_deps(request)
+    auth_config = config.global_config.auth
+    auth_ctx = resolve_user(request, auth_config)
     statuses = []
     for svc in config.services:
-        statuses.append(await _build_service_status(svc, backends, health_checker))
+        if not can_view(auth_ctx, svc, auth_config):
+            continue
+        status = await _build_service_status(svc, backends, health_checker)
+        status.can_control = can_control(auth_ctx, svc, auth_config)
+        statuses.append(status)
     return statuses
 
 
 @router.get("/{name}")
 async def get_service(name: str, request: Request) -> ServiceStatus | ErrorResponse:
     config, backends, health_checker = _get_deps(request)
+    auth_config = config.global_config.auth
+    auth_ctx = resolve_user(request, auth_config)
     svc = _find_service(config, name)
-    if not svc:
+    if not svc or not can_view(auth_ctx, svc, auth_config):
         return JSONResponse(
             status_code=404,
             content={"error": f"Service not found: {name}", "code": "SERVICE_NOT_FOUND"},
         )
-    return await _build_service_status(svc, backends, health_checker)
+    status = await _build_service_status(svc, backends, health_checker)
+    status.can_control = can_control(auth_ctx, svc, auth_config)
+    return status
 
 
 async def _perform_action(name: str, action: str, request: Request) -> ServiceActionResponse:
     config, backends, _ = _get_deps(request)
+    auth_config = config.global_config.auth
+    auth_ctx = resolve_user(request, auth_config)
     svc = _find_service(config, name)
-    if not svc:
+    if not svc or not can_view(auth_ctx, svc, auth_config):
         return JSONResponse(
             status_code=404,
             content={"error": f"Service not found: {name}", "code": "SERVICE_NOT_FOUND"},
+        )
+    if not can_control(auth_ctx, svc, auth_config):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Permission denied", "code": "FORBIDDEN"},
         )
 
     backend = backends[svc.type]

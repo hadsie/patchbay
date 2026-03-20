@@ -135,6 +135,12 @@ Patchbay resolves service health using a priority chain:
 
 HTTP health checks run in the background at the configured interval and only target services that are currently running.
 
+## Authentication
+
+Patchbay supports role-based access control through forward authentication headers set by a reverse proxy. When enabled, you can control which roles can view or control each service and preset. Auth is disabled by default.
+
+See [docs/AUTH.md](docs/AUTH.md) for configuration and setup instructions.
+
 ## Deployment
 
 ### Docker

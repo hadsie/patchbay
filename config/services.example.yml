@@ -47,6 +47,9 @@ services:
     icon: "\U0001F4F7"
     category: Media
     url: "http://homelab.local:2283"
+    # auth:
+    #   control:
+    #     allow: ["admin", "media"]
 
   - name: sshd
     type: systemd
@@ -54,6 +57,12 @@ services:
     description: "OpenSSH server daemon"
     icon: "\U0001F4E1"
     category: Infrastructure
+    # Per-service auth override (requires auth.enabled in config.yml)
+    # auth:
+    #   view:
+    #     deny: ["guest"]
+    #   control:
+    #     allow: ["admin"]
 
   - name: ComfyUI
     type: systemd

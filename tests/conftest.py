@@ -99,10 +99,7 @@ def mock_compose_backend() -> MockBackend:
     return MockBackend(states={"/tmp/test-compose-project": "running"})
 
 
-@pytest.fixture
-def test_client(
-    config_dir: Path, mock_docker_backend, mock_systemd_backend, mock_compose_backend
-) -> TestClient:
+def _make_test_client(config_dir, mock_docker_backend, mock_systemd_backend, mock_compose_backend):
     import os
 
     os.environ["CONFIG_DIR"] = str(config_dir)
@@ -111,7 +108,6 @@ def test_client(
 
     app = create_app()
 
-    # Override backends and health checker after lifespan starts
     with TestClient(app) as client:
         app.state.backends = {
             "docker": mock_docker_backend,
@@ -120,3 +116,103 @@ def test_client(
         }
         app.state.health_checker = HealthChecker()
         yield client
+
+
+@pytest.fixture
+def test_client(
+    config_dir: Path, mock_docker_backend, mock_systemd_backend, mock_compose_backend
+) -> TestClient:
+    yield from _make_test_client(
+        config_dir, mock_docker_backend, mock_systemd_backend, mock_compose_backend
+    )
+
+
+AUTH_CONFIG_YML = """\
+poll_interval: 5
+port: 4848
+auth:
+  enabled: true
+  user_header: "X-Forwarded-User"
+  groups_header: "X-Forwarded-Groups"
+  group_separator: "|"
+  roles:
+    admin:
+      groups: ["patchbay-admins"]
+    viewer:
+      groups: ["patchbay-users"]
+  view:
+    allow: ["*"]
+  control:
+    allow: ["admin"]
+  unauthenticated: deny
+"""
+
+AUTH_SERVICES_YML = """\
+services:
+  - name: public-svc
+    type: docker
+    target: public-container
+    description: "Visible to all"
+    category: Public
+  - name: admin-only-svc
+    type: docker
+    target: admin-container
+    description: "Hidden from viewers"
+    category: Admin
+    auth:
+      view:
+        allow: ["admin"]
+  - name: viewer-control-svc
+    type: docker
+    target: viewer-control-container
+    description: "Viewer can control"
+    category: Public
+    auth:
+      control:
+        allow: ["admin", "viewer"]
+"""
+
+AUTH_PRESETS_YML = """\
+presets:
+  - name: Public Preset
+    description: "Visible to all"
+    actions:
+      - service: public-svc
+        action: restart
+  - name: Admin Preset
+    description: "Only admin can see"
+    auth:
+      view:
+        allow: ["admin"]
+    actions:
+      - service: public-svc
+        action: restart
+"""
+
+
+def write_auth_config_files(config_dir: Path) -> None:
+    (config_dir / "config.yml").write_text(AUTH_CONFIG_YML)
+    (config_dir / "services.yml").write_text(AUTH_SERVICES_YML)
+    (config_dir / "presets.yml").write_text(AUTH_PRESETS_YML)
+
+
+@pytest.fixture
+def auth_config_dir(tmp_path: Path) -> Path:
+    write_auth_config_files(tmp_path)
+    return tmp_path
+
+
+@pytest.fixture
+def auth_test_client(
+    auth_config_dir: Path, mock_docker_backend, mock_systemd_backend, mock_compose_backend
+) -> TestClient:
+    mock_docker = MockBackend(
+        states={
+            "public-container": "running",
+            "admin-container": "running",
+            "viewer-control-container": "running",
+        }
+    )
+    yield from _make_test_client(
+        auth_config_dir, mock_docker, mock_systemd_backend, mock_compose_backend
+    )

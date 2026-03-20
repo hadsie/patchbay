@@ -6,6 +6,10 @@ presets:
   - name: LLM Chat
     description: "Inference server + chat UI for text generation"
     icon: "\U0001F4AC"
+    # Per-preset auth override (requires auth.enabled in config.yml)
+    # auth:
+    #   control:
+    #     allow: ["admin", "media"]
     actions:
       - service: ComfyUI
         action: stop

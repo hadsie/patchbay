@@ -126,6 +126,7 @@ function dashboard() {
 
       try {
         const resp = await fetch(`/api/services/${encodeURIComponent(name)}/${action}`, { method: 'POST' });
+        if (resp.status === 403) { this.showError('Permission denied'); return; }
         const result = await resp.json();
         if (result.result === 'error') {
           this.showError(result.error || `Failed to ${action} ${name}`);
@@ -151,6 +152,7 @@ function dashboard() {
 
       try {
         const resp = await fetch(`/api/services/${encodeURIComponent(name)}/restart`, { method: 'POST' });
+        if (resp.status === 403) { this.showError('Permission denied'); return; }
         const result = await resp.json();
         if (result.result === 'error') {
           this.showError(result.error || `Failed to restart ${name}`);
@@ -173,6 +175,7 @@ function dashboard() {
 
       try {
         const resp = await fetch(`/api/presets/${encodeURIComponent(name)}/activate`, { method: 'POST' });
+        if (resp.status === 403) { this.showError('Permission denied'); return; }
         const result = await resp.json();
         if (result.status === 'completed') {
           this.activePreset = name;
