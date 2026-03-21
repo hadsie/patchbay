@@ -6,6 +6,9 @@
 poll_interval: 30
 
 # API server bind address and port
+#   "127.0.0.1"  -- local access only (default)
+#   "0.0.0.0"    -- all interfaces (use when running in a private network)
+#   "172.17.0.1" -- docker bridge only (systemd service behind a dockerized reverse proxy)
 host: "127.0.0.1"
 port: 4848
 

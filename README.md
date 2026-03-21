@@ -35,6 +35,7 @@ pip install .
 Edit the YAML files in `config/`. See the `.example.yml` files for reference:
 
 ```bash
+cp config/config.example.yml config/config.yml
 cp config/services.example.yml config/services.yml
 cp config/presets.example.yml config/presets.yml
 $EDITOR config/config.yml config/services.yml config/presets.yml

@@ -53,22 +53,31 @@ Everyone sees all services. Only admins can start/stop/restart. Unauthenticated 
 
 3. **Create a proxy provider** with forward auth (single application mode). Set the external host to your Patchbay URL.
 
-4. **Configure Traefik middleware** (or your reverse proxy) to use Authentik's forward auth endpoint:
+4. **Define the Authentik middleware.** If you use Traefik dynamic config files, define it there. If you run Traefik via Docker Compose (more common), define it as labels on the Authentik outpost container:
 
    ```yaml
-   # Traefik dynamic config
-   http:
-     middlewares:
-       authentik:
-         forwardAuth:
-           address: "http://authentik:9000/outpost.goauthentik.io/auth/traefik"
-           trustForwardHeader: true
-           authResponseHeaders:
-             - X-authentik-username
-             - X-authentik-groups
+   # On the authentik-outpost service in your compose.yml
+   labels:
+     - traefik.enable=true
+     - traefik.http.middlewares.authentik-auth.forwardAuth.address=http://authentik-outpost:9000/outpost.goauthentik.io/auth/traefik
+     - traefik.http.middlewares.authentik-auth.forwardAuth.trustForwardHeader=true
+     - traefik.http.middlewares.authentik-auth.forwardAuth.authResponseHeaders=X-authentik-username,X-authentik-groups
    ```
 
-5. **Configure Patchbay**:
+5. **Apply the middleware to Patchbay** via labels on the Patchbay service in your compose.yml:
+
+   ```yaml
+   # On the patchbay service
+   labels:
+     - traefik.enable=true
+     - traefik.http.services.patchbay.loadbalancer.server.port=4848
+     - traefik.http.routers.patchbay.rule=Host(`patchbay.example.com`)
+     - traefik.http.routers.patchbay.entrypoints=websecure
+     - traefik.http.routers.patchbay.tls=true
+     - traefik.http.routers.patchbay.middlewares=authentik-auth
+   ```
+
+6. **Configure Patchbay**:
 
    ```yaml
    auth:

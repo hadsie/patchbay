@@ -1,4 +1,5 @@
 # Patchbay ignores
+config/config.yml
 config/services.yml
 config/presets.yml
 
