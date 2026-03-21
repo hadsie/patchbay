@@ -1,6 +1,6 @@
 {% set s = service %}
 <div class="flex flex-wrap items-center px-3 sm:px-4 py-3 bg-pb-card transition-colors duration-150 gap-2 sm:gap-3 hover:bg-pb-card-hover [&+&]:border-t [&+&]:border-pb-border/50"
-     x-data="{ get svc() { return services['{{ s.name }}'] || {} } }">
+     x-data='{ svcName: {{ s.name | tojson }}, get svc() { return services[this.svcName] || {} } }'>
   <!-- Icon -->
   <div class="text-lg w-6 sm:w-7 text-center shrink-0">{{ s.icon }}</div>
 
@@ -40,7 +40,7 @@
     <div class="flex items-center gap-2 shrink-0 ml-auto sm:ml-1">
       <!-- Restart -->
       <button
-        @click="restartService('{{ s.name }}')"
+        @click="restartService(svcName)"
         :disabled="!isRunning(svc.state) || !!activatingPreset || svc.can_control === false"
         :class="{
           'opacity-25 cursor-not-allowed pointer-events-none': !isRunning(svc.state) || svc.can_control === false,
@@ -48,11 +48,14 @@
         }"
         class="w-[30px] h-[30px] min-w-[30px] rounded-md border border-pb-border bg-transparent text-pb-text-muted cursor-pointer flex items-center justify-center text-sm transition-all duration-150 hover:text-pb-blue hover:border-pb-blue-dim hover:bg-[rgba(88,166,255,0.1)]"
         title="Restart"
+        :aria-label="'Restart ' + svcName"
       >&#x21bb;</button>
 
       <!-- Toggle -->
       <div
-        @click="if (svc.can_control !== false) toggleService('{{ s.name }}')"
+        @click="if (svc.can_control !== false) toggleService(svcName)"
+        @keydown.enter="if (svc.can_control !== false) toggleService(svcName)"
+        @keydown.space.prevent="if (svc.can_control !== false) toggleService(svcName)"
         :class="{
           'bg-pb-green-dim border-pb-green': isRunning(svc.state),
           'bg-pb-toggle-off border-transparent': !isRunning(svc.state),
@@ -62,6 +65,7 @@
         class="w-10 h-[22px] rounded-full cursor-pointer relative transition-colors duration-250 border shrink-0"
         role="switch"
         :aria-checked="isRunning(svc.state)"
+        :aria-label="isRunning(svc.state) ? 'Stop ' + svcName : 'Start ' + svcName"
         tabindex="0"
       >
         <div class="toggle-knob w-4 h-4 rounded-full absolute top-[2px] transition-all duration-250"

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from yaml import YAMLError
 
 from patchbay import __version__
+from patchbay.auth import check_permission, resolve_user
 from patchbay.config import settings
 from patchbay.models import ConfigResponse, HealthResponse
 
@@ -32,6 +33,14 @@ async def get_config(request: Request) -> ConfigResponse:
 
 @router.post("/config/reload")
 async def reload_config(request: Request):
+    auth_config = request.app.state.config.global_config.auth
+    if auth_config.enabled:
+        auth_ctx = resolve_user(request, auth_config)
+        if not check_permission(auth_ctx, auth_config.control):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Permission denied", "code": "FORBIDDEN"},
+            )
     try:
         new_config = settings.reload()
         request.app.state.config = new_config

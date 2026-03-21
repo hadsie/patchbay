@@ -2,13 +2,13 @@
 
 ## Overview
 
-Patchbay supports role-based access control (RBAC) via forward authentication headers set by an upstream reverse proxy. Patchbay does not handle login, sessions, or tokens -- your identity provider does that. Patchbay reads the identity headers your proxy forwards and makes authorization decisions locally.
+Patchbay doesn't do login or sessions. Your reverse proxy handles authentication and forwards identity headers; Patchbay reads those headers and enforces permissions locally.
 
-When `auth.enabled` is `false` (the default), the entire auth system is skipped and Patchbay behaves as if no restrictions exist.
+When `auth.enabled` is `false` (the default), auth is skipped entirely and everything is unrestricted.
 
 ## Supported providers
 
-Any reverse proxy that sets user/group headers works. Common providers:
+Anything that sets user/group headers works. Some common ones:
 
 | Provider | User header | Groups header |
 |----------|------------|---------------|
@@ -43,7 +43,7 @@ auth:
   unauthenticated: deny
 ```
 
-Everyone sees all services. Only admins can start/stop/restart. Unauthenticated requests get a 401.
+Everyone can see services. Only admins can start/stop/restart. Unauthenticated requests get 401'd.
 
 ## Authentik setup guide
 
@@ -143,15 +143,15 @@ presets:
 
 ## Permission resolution
 
-For each resource and permission type (view or control):
+For each resource (service or preset) and permission type (view or control):
 
-1. Use the resource's own `auth.<type>` if present, otherwise use the global default.
-2. If the user has **any** role in `deny`: **denied**.
-3. If `allow` contains `"*"`: **allowed**.
-4. If the user has **any** role in `allow`: **allowed**.
-5. Otherwise: **denied**.
+1. Use the resource's own `auth.<type>` if set, otherwise fall back to the global default.
+2. User has any role in `deny`? Denied.
+3. `allow` contains `"*"`? Allowed.
+4. User has any role in `allow`? Allowed.
+5. Otherwise: denied.
 
-Deny always wins. Roles are additive -- a user in multiple groups gets the union of all matching roles.
+Deny always wins. A user in multiple groups gets the union of all matching roles.
 
 ### Examples
 
@@ -161,15 +161,15 @@ Deny always wins. Roles are additive -- a user in multiple groups gets the union
 
 ## Preset delegation
 
-When a user activates a preset, Patchbay only checks the **preset's** control permission. The user does **not** need control permission on each individual service in the preset.
+Activating a preset only checks the **preset's** control permission, not each individual service in it.
 
-This is intentional: an admin authors a preset and assigns it to a role, granting that role permission to execute the bundled operations without requiring broad service-level control. In the UI, a user may see a service they cannot toggle directly, but can still activate a preset that starts/stops it.
+This is by design: an admin creates a preset and assigns it to a role. Users with that role can run the preset even if they can't toggle those services individually.
 
 ## Debugging
 
 ### `/api/auth/me` endpoint
 
-Returns the current user's resolved identity:
+Shows who Patchbay thinks you are:
 
 ```bash
 curl -H "X-Forwarded-User: alice" -H "X-Forwarded-Groups: patchbay-admins" \
@@ -188,7 +188,7 @@ When auth is disabled:
 
 ### Verifying headers
 
-If auth is not working as expected, check that identity headers are reaching Patchbay. Common issues:
+If auth isn't working, check that headers are actually reaching Patchbay. Common issues:
 
 - Proxy not forwarding headers (check `authResponseHeaders` in Traefik, or equivalent in your proxy)
 - Header name mismatch between provider and `config.yml`
@@ -196,7 +196,7 @@ If auth is not working as expected, check that identity headers are reaching Pat
 
 ## Limitations
 
-- **Header trust:** Patchbay trusts identity headers unconditionally. This is only safe when the reverse proxy is the sole entry point. If Patchbay is exposed directly, anyone can forge headers. Keep `auth.enabled: false` when running without a proxy.
-- **No per-action permissions:** You cannot allow "start" but deny "stop" for a given role. This could be added later if needed.
-- **Page refresh after config reload:** If you change auth settings via `POST /api/config/reload`, the API immediately uses the new permissions. However, the dashboard HTML structure is fixed until the next page load. Users should refresh after auth config changes.
-- **No audit logging:** Auth decisions are not logged. This is planned for a future release.
+- **Header trust:** Patchbay trusts identity headers blindly. This is only safe behind a reverse proxy. If Patchbay is exposed directly, anyone can forge headers.
+- **No per-action permissions:** You can't allow "start" but deny "stop" for a role. Could be added later.
+- **Page refresh after config reload:** After `POST /api/config/reload`, the API uses new permissions immediately but the dashboard HTML is stale until you refresh the page.
+- **No audit logging:** Auth decisions aren't logged yet.

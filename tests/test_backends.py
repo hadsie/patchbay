@@ -12,31 +12,32 @@ from patchbay.backends.base import (
     ServiceActionError,
     ServiceNotFoundError,
 )
-from patchbay.backends.docker import DockerBackend, _format_uptime
+from patchbay.backends.docker import DockerBackend
 from patchbay.backends.systemd import SystemdBackend
+from patchbay.backends.util import format_uptime
 
 
 class TestDockerFormatUptime:
     def test_formats_days_and_hours(self):
         ts = (datetime.now(UTC) - timedelta(days=2, hours=4)).isoformat()
-        result = _format_uptime(ts)
+        result = format_uptime(ts)
         assert result is not None
         assert "2d" in result
 
     def test_formats_hours_and_minutes(self):
         ts = (datetime.now(UTC) - timedelta(hours=3, minutes=15)).isoformat()
-        result = _format_uptime(ts)
+        result = format_uptime(ts)
         assert result is not None
         assert "3h" in result
 
     def test_formats_minutes_only(self):
         ts = (datetime.now(UTC) - timedelta(minutes=42)).isoformat()
-        result = _format_uptime(ts)
+        result = format_uptime(ts)
         assert result is not None
         assert "42m" in result
 
     def test_returns_none_for_invalid(self):
-        assert _format_uptime("not-a-date") is None
+        assert format_uptime("not-a-date") is None
 
 
 def _make_docker_backend(client: MagicMock) -> DockerBackend:

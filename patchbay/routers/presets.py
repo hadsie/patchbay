@@ -75,10 +75,4 @@ async def activate(name: str, request: Request) -> PresetActivationResponse:
             status_code=403,
             content={"error": "Permission denied", "code": "FORBIDDEN"},
         )
-    try:
-        return await activate_preset(name, config, backends)
-    except KeyError:
-        return JSONResponse(
-            status_code=404,
-            content={"error": f"Preset not found: {name}", "code": "PRESET_NOT_FOUND"},
-        )
+    return await activate_preset(name, config, backends)

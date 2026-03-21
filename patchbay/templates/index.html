@@ -31,7 +31,7 @@
 </div>
 
 <script>
-window.__PATCHBAY_INIT__ = {{ init_data | safe }};
+window.__PATCHBAY_INIT__ = {{ init_data | tojson }};
 
 function dashboard() {
   return {
@@ -179,9 +179,11 @@ function dashboard() {
         const result = await resp.json();
         if (result.status === 'completed') {
           this.activePreset = name;
-        } else {
+        } else if (result.failed_at != null) {
           const failedAction = result.actions[result.failed_at];
           this.showError(`Preset "${name}" failed at ${failedAction.service}: ${failedAction.error || 'unknown error'}`);
+        } else {
+          this.showError(`Preset "${name}" failed`);
         }
       } catch (e) {
         this.showError(`Failed to activate preset "${name}"`);

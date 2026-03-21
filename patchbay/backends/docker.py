@@ -13,9 +13,6 @@ from patchbay.backends.util import format_uptime
 
 logger = logging.getLogger(__name__)
 
-# Re-export for backwards compatibility with tests
-_format_uptime = format_uptime
-
 
 class DockerBackend(ServiceBackend):
     def __init__(self) -> None:
@@ -28,7 +25,9 @@ class DockerBackend(ServiceBackend):
             self._client.ping()
             self.available = True
             logger.info("Docker backend initialized")
-        except Exception:
+        except ImportError:
+            logger.warning("Docker backend unavailable (docker-py not installed)")
+        except docker.errors.DockerException:
             logger.warning("Docker backend unavailable (no socket or daemon not running)")
 
     def _ensure_available(self) -> None:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections import OrderedDict
 from contextlib import asynccontextmanager
@@ -14,13 +13,14 @@ from fastapi.templating import Jinja2Templates
 
 from patchbay import __version__
 from patchbay.auth import can_control, can_view, resolve_user
-from patchbay.backends.base import BackendError, BackendUnavailableError, ServiceNotFoundError
+from patchbay.backends.base import BackendUnavailableError, ServiceNotFoundError
 from patchbay.backends.compose import ComposeBackend
 from patchbay.backends.docker import DockerBackend
 from patchbay.backends.systemd import SystemdBackend
 from patchbay.config import settings
-from patchbay.health import HealthChecker, resolve_health
+from patchbay.health import HealthChecker
 from patchbay.routers import auth, presets, services, system
+from patchbay.routers.services import _build_service_status
 
 logger = logging.getLogger(__name__)
 
@@ -102,38 +102,9 @@ def create_app() -> FastAPI:
         for svc in config.services:
             if not can_view(auth_ctx, svc, auth_config):
                 continue
-            backend = backends[svc.type]
-            try:
-                state = await backend.get_state(svc.target)
-            except BackendError:
-                state = "unknown"
-            try:
-                docker_health = await backend.get_health_info(svc.target)
-            except BackendError:
-                docker_health = None
-            try:
-                uptime = await backend.get_uptime(svc.target)
-            except BackendError:
-                uptime = None
-
-            checker_result = health_checker.results.get(svc.name)
-            health = resolve_health(svc, state, checker_result, docker_health)
-
-            service_statuses.append(
-                {
-                    "name": svc.name,
-                    "type": svc.type,
-                    "target": svc.target,
-                    "description": svc.description,
-                    "category": svc.category,
-                    "icon": svc.icon,
-                    "url": svc.url,
-                    "state": state,
-                    "health": health,
-                    "uptime": uptime,
-                    "can_control": can_control(auth_ctx, svc, auth_config),
-                }
-            )
+            status = await _build_service_status(svc, backends, health_checker)
+            status.can_control = can_control(auth_ctx, svc, auth_config)
+            service_statuses.append(status.model_dump())
 
         # Group by category preserving order
         categories: OrderedDict[str, list] = OrderedDict()
@@ -153,14 +124,12 @@ def create_app() -> FastAPI:
             for p in visible_presets
         ]
 
-        init_data = json.dumps(
-            {
-                "services": {s["name"]: s for s in service_statuses},
-                "presets": presets_data,
-                "pollInterval": config.global_config.poll_interval,
-                "version": __version__,
-            }
-        )
+        init_data = {
+            "services": {s["name"]: s for s in service_statuses},
+            "presets": presets_data,
+            "pollInterval": config.global_config.poll_interval,
+            "version": __version__,
+        }
 
         return templates.TemplateResponse(
             "index.html",

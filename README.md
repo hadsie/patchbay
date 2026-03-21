@@ -1,6 +1,6 @@
 # Patchbay
 
-A lightweight, mobile-first service control dashboard for Docker containers, Docker Compose projects, and systemd units. Toggle services on/off, restart them, and activate presets -- named configurations that orchestrate stop/start/restart sequences across multiple services.
+A dashboard for toggling Docker containers, Compose projects, and systemd units on and off. Supports presets - named groups of start/stop/restart actions that run in sequence.
 
 Built for homelabs and workstations where GPU-heavy or RAM-heavy services compete for resources and can't all run simultaneously.
 
@@ -8,12 +8,12 @@ Built for homelabs and workstations where GPU-heavy or RAM-heavy services compet
 
 ## Features
 
-- Unified dashboard for Docker containers, Compose projects, and systemd units
-- One-click presets that orchestrate ordered stop/start/restart sequences
-- Mobile-first responsive UI (dark theme, works at 320px+)
-- REST API with auto-generated OpenAPI docs at `/docs`
-- HTTP health checks, Docker HEALTHCHECK integration, and status polling
-- Hot-reload configuration without restarting the server
+- Manage Docker containers, Compose projects, and systemd units from one page
+- Presets: define ordered stop/start/restart sequences, activate with one click
+- Mobile-friendly dark UI (works down to 320px)
+- REST API -- same endpoints the UI uses, OpenAPI docs at `/docs`
+- HTTP health checks and Docker HEALTHCHECK support
+- Hot-reload config without restarting
 
 ## Requirements
 
@@ -122,31 +122,31 @@ curl http://localhost:4848/api/config
 curl -X POST http://localhost:4848/api/config/reload
 ```
 
-Full interactive API documentation is available at http://localhost:4848/docs (Swagger UI).
+Interactive API docs (Swagger UI) at http://localhost:4848/docs.
 
 ## Health Checking
 
-Patchbay resolves service health using a priority chain:
+Health is resolved in priority order:
 
-1. **Stopped/inactive** -- health is `"n/a"`
-2. **HTTP health check** configured in `services.yml` -- uses the check result
-3. **Docker HEALTHCHECK** defined in the container's Dockerfile/compose -- uses Docker's built-in health status
-4. **Running with no check configured** -- assumes `"healthy"`
-5. **Partial** (compose only, some containers down) -- `"unhealthy"` unless an HTTP check overrides
+1. **Stopped/inactive** -- `"n/a"`
+2. **HTTP health check** from `services.yml` -- uses the check result
+3. **Docker HEALTHCHECK** from the container image -- uses Docker's status
+4. **Running, no check configured** -- assumes `"healthy"`
+5. **Partial** (compose only, some containers down) -- `"unhealthy"` unless an HTTP check says otherwise
 
-HTTP health checks run in the background at the configured interval and only target services that are currently running.
+HTTP checks run in the background at the configured interval and only hit running services.
 
 ## Authentication
 
-Patchbay supports role-based access control through forward authentication headers set by a reverse proxy. When enabled, you can control which roles can view or control each service and preset. Auth is disabled by default.
+Optional role-based access control via forward auth headers from a reverse proxy. Control which roles can view or toggle each service and preset. Off by default.
 
-See [docs/AUTH.md](docs/AUTH.md) for configuration and setup instructions.
+See [docs/AUTH.md](docs/AUTH.md) for setup.
 
 ## Deployment
 
 ### Docker
 
-The included `compose.yml` mounts the Docker socket and the `config/` directory into the container:
+The included `compose.yml` mounts the Docker socket and `config/` into the container:
 
 ```bash
 docker compose up -d --build
@@ -154,20 +154,20 @@ docker compose up -d --build
 
 Your mounted `config/config.yml` must set `host: "0.0.0.0"` so the server is reachable from outside the container. The default (`127.0.0.1`) only listens on the container's loopback and won't be accessible on the mapped port.
 
-When running in Docker, Patchbay can manage Docker containers and Compose projects but not systemd units. For systemd unit management, run Patchbay directly on the host.
+From Docker, Patchbay can manage containers and Compose projects but not systemd units. For systemd, run it directly on the host.
 
 ### Direct install (Docker + Compose + systemd)
 
-To manage Docker containers, Compose projects, and systemd units, run directly on the host.
+For managing everything including systemd units, run on the host directly.
 
-Create a dedicated user and give it Docker access:
+Create a dedicated user with Docker access:
 
 ```bash
 sudo useradd -r -s /usr/sbin/nologin patchbay
 sudo usermod -aG docker patchbay
 ```
 
-If you only need Docker management, that's sufficient. To also manage systemd units, create a sudoers rule that allows the patchbay user to run `systemctl start`, `stop`, and `restart` without a password:
+If you only need Docker, that's it. For systemd units, also add a sudoers rule so the patchbay user can run `systemctl start/stop/restart` without a password:
 
 ```bash
 sudo visudo -f /etc/sudoers.d/patchbay
@@ -214,7 +214,7 @@ sudo systemctl enable --now patchbay
 
 ### Docker socket security
 
-Mounting the Docker socket grants full control over all containers. For hardened deployments, consider using [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) to whitelist only the API endpoints Patchbay needs (container inspect, start, stop, restart).
+Mounting the Docker socket gives full control over all containers. If that bothers you, use [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) to whitelist only the endpoints Patchbay needs (container inspect, start, stop, restart).
 
 ## Development
 

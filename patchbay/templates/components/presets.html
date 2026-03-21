@@ -3,12 +3,12 @@
   <div class="flex flex-wrap gap-2">
     {% for preset in presets %}
     <button
-      x-data="{ get p() { return presets.find(p => p.name === '{{ preset.name }}') || {} } }"
-      @click="activatePreset('{{ preset.name }}')"
+      x-data='{ pName: {{ preset.name | tojson }}, get p() { return presets.find(p => p.name === this.pName) || {} } }'
+      @click="activatePreset(pName)"
       :class="{
-        'border-pb-blue-dim bg-[rgba(88,166,255,0.1)]': activePreset === '{{ preset.name }}',
-        'preset-btn-activating': activatingPreset === '{{ preset.name }}',
-        'opacity-50 pointer-events-none': (activatingPreset && activatingPreset !== '{{ preset.name }}') || p.can_control === false
+        'border-pb-blue-dim bg-[rgba(88,166,255,0.1)]': activePreset === pName,
+        'preset-btn-activating': activatingPreset === pName,
+        'opacity-50 pointer-events-none': (activatingPreset && activatingPreset !== pName) || p.can_control === false
       }"
       :disabled="!!activatingPreset || p.can_control === false"
       class="relative overflow-hidden flex items-center gap-2 px-4 py-2.5 rounded-lg border border-pb-border bg-pb-card text-pb-text cursor-pointer transition-all duration-200 font-sans text-[13px] font-medium hover:border-pb-blue-dim hover:bg-pb-card-hover hover:-translate-y-px"
