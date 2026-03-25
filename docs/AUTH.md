@@ -194,6 +194,77 @@ If auth isn't working, check that headers are actually reaching Patchbay. Common
 - Header name mismatch between provider and `config.yml`
 - Group separator mismatch (Authentik uses `|`, Authelia uses `,`)
 
+## API key authentication
+
+For programmatic access (CLI, scripts, AI agents) where forward-auth headers are not available, Patchbay supports `Authorization: Bearer <key>` authentication. API keys are static, stored as bcrypt hashes in config, and each key binds to specific roles.
+
+### Generating a key
+
+```bash
+python -c "from patchbay.auth import generate_api_key; k,h = generate_api_key('my-key'); print(f'Key: {k}\nHash: {h}')"
+```
+
+Save the plaintext key somewhere safe -- it cannot be recovered from the hash.
+
+### Configuration
+
+API keys live in a separate file, `api_keys.yml`, in the same config directory as `config.yml`. This keeps secrets out of the main config and lets you set stricter file permissions.
+
+```yaml
+# api_keys.yml
+api_keys:
+  - label: "claude-agent"
+    key_hash: "$2b$12$..."
+    roles: ["admin"]
+  - label: "monitoring"
+    key_hash: "$2b$12$..."
+    roles: ["viewer"]
+```
+
+Each key gets a `label` (used as the username in `/api/auth/me`, prefixed with `api:`), a `key_hash` (bcrypt), and a list of `roles` that must be defined in `auth.roles` in `config.yml`.
+
+When `api_keys.yml` is missing or empty, Bearer token checking is disabled entirely (backward compatible).
+
+### Usage
+
+```bash
+curl -H "Authorization: Bearer pb_abc123..." http://localhost:4848/api/services
+```
+
+### Priority
+
+When a request includes a `Bearer` token and API keys are configured:
+
+1. The token is checked against all configured keys.
+2. If it matches, the key's roles are used (identity headers are ignored).
+3. If the token is present but invalid, Patchbay returns 401 -- it never falls through to header-based auth with a bad key.
+4. If no `Authorization` header is present, normal header-based auth applies.
+
+### Security notes
+
+- Treat API keys like passwords. Do not commit plaintext keys to git.
+- Use environment variable injection or secrets management in production.
+- API keys bypass forward-auth entirely -- Patchbay validates them at the application layer.
+
+### Traefik dual-router pattern
+
+When using forward-auth (Authentik, Authelia, etc.) with Traefik, API clients sending Bearer tokens will be redirected to the login page by the forward-auth middleware. To avoid this, configure two Traefik routers:
+
+```yaml
+# Router 1: Browser traffic with forward-auth
+- traefik.http.routers.patchbay-web.rule=Host(`patchbay.example.com`) && !HeaderRegexp(`Authorization`, `^Bearer .+`)
+- traefik.http.routers.patchbay-web.middlewares=authentik-auth
+- traefik.http.routers.patchbay-web.entrypoints=websecure
+- traefik.http.routers.patchbay-web.tls=true
+
+# Router 2: API traffic with Bearer token -- no forward-auth
+- traefik.http.routers.patchbay-api.rule=Host(`patchbay.example.com`) && HeaderRegexp(`Authorization`, `^Bearer .+`)
+- traefik.http.routers.patchbay-api.entrypoints=websecure
+- traefik.http.routers.patchbay-api.tls=true
+```
+
+This is optional. If forward-auth is not in the path (e.g., direct access on a LAN), a single router works fine.
+
 ## Limitations
 
 - **Header trust:** Patchbay trusts identity headers blindly. This is only safe behind a reverse proxy. If Patchbay is exposed directly, anyone can forge headers.

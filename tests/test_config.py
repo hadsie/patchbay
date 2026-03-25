@@ -219,6 +219,50 @@ class TestAuthConfig:
         config = _load_and_validate(config_dir)
         assert config.global_config.auth.enabled is False
 
+    def test_api_keys_default_to_empty(self, config_dir: Path):
+        config = _load_and_validate(config_dir)
+        assert config.global_config.auth.api_keys == []
+
+    def test_api_key_undefined_role_warns(self, tmp_path: Path, caplog):
+        write_config_files(
+            tmp_path,
+            config_yml=(
+                "poll_interval: 5\nport: 4848\n"
+                "auth:\n"
+                "  enabled: true\n"
+                "  roles:\n    admin:\n      groups: [admins]\n"
+                "  unauthenticated: deny\n"
+            ),
+        )
+        (tmp_path / "api_keys.yml").write_text(
+            'api_keys:\n  - label: test\n    key_hash: "$2b$12$fake"\n    roles: [admin, phantom]\n'
+        )
+        _load_and_validate(tmp_path)
+        assert "phantom" in caplog.text
+
+    def test_api_key_duplicate_labels_warns(self, tmp_path: Path, caplog):
+        write_config_files(
+            tmp_path,
+            config_yml=(
+                "poll_interval: 5\nport: 4848\n"
+                "auth:\n"
+                "  enabled: true\n"
+                "  roles:\n    admin:\n      groups: [admins]\n"
+                "  unauthenticated: deny\n"
+            ),
+        )
+        (tmp_path / "api_keys.yml").write_text(
+            "api_keys:\n"
+            "  - label: dupe\n"
+            '    key_hash: "$2b$12$fake1"\n'
+            "    roles: [admin]\n"
+            "  - label: dupe\n"
+            '    key_hash: "$2b$12$fake2"\n'
+            "    roles: [admin]\n"
+        )
+        _load_and_validate(tmp_path)
+        assert "Duplicate API key labels" in caplog.text
+
 
 class TestConfigReload:
     def test_reload_succeeds(self, config_dir: Path):

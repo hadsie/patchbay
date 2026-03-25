@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import bcrypt
 import pytest
 from fastapi import HTTPException
 from starlette.testclient import TestClient
 
-from patchbay.auth import AuthContext, can_control, can_view, check_permission, resolve_user
+from patchbay.auth import (
+    AuthContext,
+    can_control,
+    can_view,
+    check_permission,
+    generate_api_key,
+    resolve_user,
+)
 from patchbay.config import (
+    ApiKeyConfig,
     AuthConfig,
     PermissionRule,
     PresetActionConfig,
@@ -14,6 +23,7 @@ from patchbay.config import (
     RoleConfig,
     ServiceConfig,
 )
+from tests.conftest import TEST_API_KEY_ADMIN, TEST_API_KEY_ADMIN_HASH, TEST_API_KEY_VIEWER
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -430,3 +440,245 @@ class TestAuthUnauthenticated:
         resp = auth_test_client.get("/")
         assert resp.status_code == 401
         assert "log in" in resp.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: resolve_user with API keys
+# ---------------------------------------------------------------------------
+
+
+def _make_api_key_auth_config(**overrides) -> AuthConfig:
+    defaults = {
+        "enabled": True,
+        "roles": {
+            "admin": RoleConfig(groups=["patchbay-admins"]),
+            "viewer": RoleConfig(groups=["patchbay-users"]),
+        },
+        "view": PermissionRule(),
+        "control": PermissionRule(allow=["admin"], deny=[]),
+        "unauthenticated": "deny",
+        "api_keys": [
+            ApiKeyConfig(
+                label="test-admin",
+                key_hash=TEST_API_KEY_ADMIN_HASH,
+                roles=["admin"],
+            ),
+        ],
+    }
+    defaults.update(overrides)
+    return AuthConfig(**defaults)
+
+
+class TestResolveUserApiKey:
+    def test_valid_bearer_returns_key_roles(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest({"authorization": f"Bearer {TEST_API_KEY_ADMIN}"})
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "api:test-admin"
+        assert ctx.roles == {"admin"}
+        assert ctx.authenticated is True
+
+    def test_valid_bearer_with_multiple_roles(self):
+        cfg = _make_api_key_auth_config(
+            api_keys=[
+                ApiKeyConfig(
+                    label="multi",
+                    key_hash=TEST_API_KEY_ADMIN_HASH,
+                    roles=["admin", "viewer"],
+                ),
+            ],
+        )
+        req = _FakeRequest({"authorization": f"Bearer {TEST_API_KEY_ADMIN}"})
+        ctx = resolve_user(req, cfg)
+        assert ctx.roles == {"admin", "viewer"}
+
+    def test_invalid_bearer_raises_401(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest({"authorization": "Bearer wrong-key"})
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_user(req, cfg)
+        assert exc_info.value.status_code == 401
+        assert "Invalid API key" in exc_info.value.detail
+
+    def test_bearer_takes_priority_over_headers(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest(
+            {
+                "authorization": f"Bearer {TEST_API_KEY_ADMIN}",
+                "X-Forwarded-User": "alice",
+                "X-Forwarded-Groups": "patchbay-users",
+            }
+        )
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "api:test-admin"
+        assert ctx.roles == {"admin"}
+
+    def test_no_bearer_falls_through_to_headers(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest(
+            {
+                "X-Forwarded-User": "alice",
+                "X-Forwarded-Groups": "patchbay-users",
+            }
+        )
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "alice"
+        assert ctx.roles == {"viewer"}
+
+    def test_no_api_keys_configured_ignores_bearer(self):
+        cfg = _make_api_key_auth_config(api_keys=[])
+        req = _FakeRequest(
+            {
+                "authorization": "Bearer some-token",
+                "X-Forwarded-User": "alice",
+                "X-Forwarded-Groups": "patchbay-admins",
+            }
+        )
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "alice"
+        assert ctx.roles == {"admin"}
+
+    def test_auth_disabled_ignores_bearer(self):
+        cfg = AuthConfig(
+            enabled=False,
+            api_keys=[
+                ApiKeyConfig(label="key", key_hash=TEST_API_KEY_ADMIN_HASH, roles=["admin"]),
+            ],
+        )
+        req = _FakeRequest({"authorization": f"Bearer {TEST_API_KEY_ADMIN}"})
+        ctx = resolve_user(req, cfg)
+        assert ctx.roles == {"*"}
+        assert ctx.authenticated is False
+
+    def test_non_bearer_scheme_ignored(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest(
+            {
+                "authorization": "Basic dXNlcjpwYXNz",
+                "X-Forwarded-User": "alice",
+                "X-Forwarded-Groups": "patchbay-admins",
+            }
+        )
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "alice"
+        assert ctx.roles == {"admin"}
+
+    def test_bearer_with_empty_token_falls_through(self):
+        cfg = _make_api_key_auth_config()
+        req = _FakeRequest(
+            {
+                "authorization": "Bearer ",
+                "X-Forwarded-User": "alice",
+                "X-Forwarded-Groups": "patchbay-admins",
+            }
+        )
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "alice"
+
+    def test_malformed_hash_skipped_with_warning(self, caplog):
+        cfg = _make_api_key_auth_config(
+            api_keys=[
+                ApiKeyConfig(label="bad", key_hash="not-a-hash", roles=["admin"]),
+                ApiKeyConfig(
+                    label="good",
+                    key_hash=TEST_API_KEY_ADMIN_HASH,
+                    roles=["admin"],
+                ),
+            ],
+        )
+        req = _FakeRequest({"authorization": f"Bearer {TEST_API_KEY_ADMIN}"})
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "api:good"
+        assert "Malformed key_hash" in caplog.text
+        assert "bad" in caplog.text
+
+    def test_multiple_keys_second_match(self):
+        other_hash = bcrypt.hashpw(b"pb_other_key", bcrypt.gensalt()).decode()
+        cfg = _make_api_key_auth_config(
+            api_keys=[
+                ApiKeyConfig(label="first", key_hash=other_hash, roles=["viewer"]),
+                ApiKeyConfig(
+                    label="second",
+                    key_hash=TEST_API_KEY_ADMIN_HASH,
+                    roles=["admin"],
+                ),
+            ],
+        )
+        req = _FakeRequest({"authorization": f"Bearer {TEST_API_KEY_ADMIN}"})
+        ctx = resolve_user(req, cfg)
+        assert ctx.username == "api:second"
+        assert ctx.roles == {"admin"}
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: generate_api_key
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateApiKey:
+    def test_returns_key_and_hash(self):
+        key, key_hash = generate_api_key("test")
+        assert isinstance(key, str)
+        assert isinstance(key_hash, str)
+
+    def test_key_has_prefix(self):
+        key, _ = generate_api_key("test")
+        assert key.startswith("pb_")
+
+    def test_hash_verifies(self):
+        key, key_hash = generate_api_key("test")
+        assert bcrypt.checkpw(key.encode(), key_hash.encode())
+
+    def test_keys_are_unique(self):
+        key1, _ = generate_api_key("a")
+        key2, _ = generate_api_key("b")
+        assert key1 != key2
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: API key auth
+# ---------------------------------------------------------------------------
+
+
+class TestApiKeyIntegration:
+    def test_valid_admin_key_lists_services(self, api_key_auth_test_client: TestClient):
+        resp = api_key_auth_test_client.get(
+            "/api/services",
+            headers={"Authorization": f"Bearer {TEST_API_KEY_ADMIN}"},
+        )
+        assert resp.status_code == 200
+        names = {s["name"] for s in resp.json()}
+        assert "public-svc" in names
+        assert "admin-only-svc" in names
+
+    def test_admin_key_can_control_service(self, api_key_auth_test_client: TestClient):
+        resp = api_key_auth_test_client.post(
+            "/api/services/public-svc/restart",
+            headers={"Authorization": f"Bearer {TEST_API_KEY_ADMIN}"},
+        )
+        assert resp.status_code == 200
+
+    def test_viewer_key_cannot_control_service(self, api_key_auth_test_client: TestClient):
+        resp = api_key_auth_test_client.post(
+            "/api/services/public-svc/restart",
+            headers={"Authorization": f"Bearer {TEST_API_KEY_VIEWER}"},
+        )
+        assert resp.status_code == 403
+
+    def test_invalid_key_returns_401(self, api_key_auth_test_client: TestClient):
+        resp = api_key_auth_test_client.get(
+            "/api/services",
+            headers={"Authorization": "Bearer pb_wrong_key"},
+        )
+        assert resp.status_code == 401
+
+    def test_auth_me_shows_api_key_identity(self, api_key_auth_test_client: TestClient):
+        resp = api_key_auth_test_client.get(
+            "/api/auth/me",
+            headers={"Authorization": f"Bearer {TEST_API_KEY_ADMIN}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] == "api:test-admin"
+        assert "admin" in data["roles"]
+        assert data["authenticated"] is True

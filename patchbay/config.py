@@ -69,6 +69,12 @@ class RoleConfig(BaseModel):
     groups: list[str]
 
 
+class ApiKeyConfig(BaseModel):
+    label: str
+    key_hash: str
+    roles: list[str] = []
+
+
 class AuthConfig(BaseModel):
     enabled: bool = False
     user_header: str = "X-Forwarded-User"
@@ -78,6 +84,7 @@ class AuthConfig(BaseModel):
     view: PermissionRule = PermissionRule()
     control: PermissionRule = PermissionRule(allow=["admin"], deny=[])
     unauthenticated: str = "deny"
+    api_keys: list[ApiKeyConfig] = []
 
     @field_validator("group_separator")
     @classmethod
@@ -172,12 +179,19 @@ class AppConfig(BaseModel):
                         if rule:
                             all_refs.update(rule.allow)
                             all_refs.update(rule.deny)
+            for api_key in auth.api_keys:
+                all_refs.update(api_key.roles)
+
             for ref in all_refs:
                 if ref != "*" and ref not in defined_roles:
                     logger.warning(
                         "Role %r referenced in permissions but not defined in auth.roles",
                         ref,
                     )
+
+            labels = [k.label for k in auth.api_keys]
+            if len(set(labels)) != len(labels):
+                logger.warning("Duplicate API key labels found")
 
         return self
 
@@ -202,7 +216,11 @@ def _load_and_validate(config_dir: str | Path) -> AppConfig:
     if not presets_data.get("presets"):
         logger.info("No presets defined (presets.yml missing or empty)")
 
+    api_keys_data = _load_yaml(config_dir / "api_keys.yml")
+    api_keys = [ApiKeyConfig(**k) for k in api_keys_data.get("api_keys", [])]
+
     global_config = GlobalConfig(**global_data)
+    global_config.auth.api_keys = api_keys
     services = [ServiceConfig(**s) for s in services_data.get("services", [])]
     presets = [PresetConfig(**p) for p in presets_data.get("presets", [])]
 

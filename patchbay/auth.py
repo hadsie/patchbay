@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
+import secrets
 from dataclasses import dataclass
 
+import bcrypt
 from fastapi import HTTPException, Request
 
 from patchbay.config import AuthConfig, PermissionRule, PresetConfig, ResourceAuth, ServiceConfig
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -15,13 +20,32 @@ class AuthContext:
 
 
 def resolve_user(request: Request, auth_config: AuthConfig) -> AuthContext:
-    """Read identity headers and resolve the user's roles.
+    """Read identity from Bearer token or forwarded headers and resolve roles.
 
-    When auth is disabled, returns a wildcard context that passes all checks.
+    Priority: auth disabled -> API key -> identity headers -> unauthenticated policy.
     """
     if not auth_config.enabled:
         return AuthContext(username=None, roles={"*"}, authenticated=False)
 
+    # Check Bearer token when API keys are configured
+    if auth_config.api_keys:
+        auth_header = request.headers.get("authorization")
+        if auth_header:
+            scheme, _, token = auth_header.partition(" ")
+            if scheme.lower() == "bearer" and token:
+                for key in auth_config.api_keys:
+                    try:
+                        if bcrypt.checkpw(token.encode(), key.key_hash.encode()):
+                            return AuthContext(
+                                username=f"api:{key.label}",
+                                roles=set(key.roles),
+                                authenticated=True,
+                            )
+                    except ValueError:
+                        logger.warning("Malformed key_hash for API key %r, skipping", key.label)
+                raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Fall through to header-based auth
     username = request.headers.get(auth_config.user_header)
     groups_raw = request.headers.get(auth_config.groups_header)
 
@@ -42,6 +66,18 @@ def resolve_user(request: Request, auth_config: AuthConfig) -> AuthContext:
                 roles.add(role_name)
 
     return AuthContext(username=username, roles=roles, authenticated=True)
+
+
+def generate_api_key(label: str) -> tuple[str, str]:
+    """Generate a random API key and its bcrypt hash.
+
+    Returns (plaintext_key, bcrypt_hash). The plaintext should be shown
+    to the user once and never stored by the server.
+    """
+    raw = secrets.token_urlsafe(32)
+    key = f"pb_{raw}"
+    key_hash = bcrypt.hashpw(key.encode(), bcrypt.gensalt()).decode()
+    return key, key_hash
 
 
 def check_permission(auth_ctx: AuthContext, rule: PermissionRule) -> bool:

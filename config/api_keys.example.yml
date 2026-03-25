@@ -1,0 +1,23 @@
+# =============================================================================
+# Patchbay -- API Keys
+# =============================================================================
+# API keys allow programmatic access (CLI, scripts, AI agents) via
+# Authorization: Bearer <key> headers.
+#
+# This file is loaded from the same CONFIG_DIR as config.yml. If this file
+# is missing or empty, API key authentication is disabled.
+#
+# Generate a key:
+#   python -c "from patchbay.auth import generate_api_key; k,h = generate_api_key('my-key'); print(f'Key: {k}\nHash: {h}')"
+#
+# Each key binds to roles defined in config.yml's auth.roles section.
+# Keep this file out of version control -- it contains secret hashes.
+# =============================================================================
+
+# api_keys:
+#   - label: "claude-agent"
+#     key_hash: "$2b$12$..."
+#     roles: ["admin"]
+#   - label: "monitoring-script"
+#     key_hash: "$2b$12$..."
+#     roles: ["viewer"]

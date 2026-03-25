@@ -3,11 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import bcrypt
 import pytest
 from fastapi.testclient import TestClient
 
 from patchbay.config import AppConfig, ConfigHolder
 from patchbay.health import HealthChecker
+
+TEST_API_KEY_ADMIN = "pb_test_admin_key_for_unit_tests"
+TEST_API_KEY_ADMIN_HASH = bcrypt.hashpw(TEST_API_KEY_ADMIN.encode(), bcrypt.gensalt()).decode()
+TEST_API_KEY_VIEWER = "pb_test_viewer_key_for_unit_tests"
+TEST_API_KEY_VIEWER_HASH = bcrypt.hashpw(TEST_API_KEY_VIEWER.encode(), bcrypt.gensalt()).decode()
 
 
 class MockBackend:
@@ -215,4 +221,41 @@ def auth_test_client(
     )
     yield from _make_test_client(
         auth_config_dir, mock_docker, mock_systemd_backend, mock_compose_backend
+    )
+
+
+def _api_keys_yml() -> str:
+    return (
+        "api_keys:\n"
+        '  - label: "test-admin"\n'
+        f'    key_hash: "{TEST_API_KEY_ADMIN_HASH}"\n'
+        '    roles: ["admin"]\n'
+        '  - label: "test-viewer"\n'
+        f'    key_hash: "{TEST_API_KEY_VIEWER_HASH}"\n'
+        '    roles: ["viewer"]\n'
+    )
+
+
+@pytest.fixture
+def api_key_auth_config_dir(tmp_path: Path) -> Path:
+    (tmp_path / "config.yml").write_text(AUTH_CONFIG_YML)
+    (tmp_path / "services.yml").write_text(AUTH_SERVICES_YML)
+    (tmp_path / "presets.yml").write_text(AUTH_PRESETS_YML)
+    (tmp_path / "api_keys.yml").write_text(_api_keys_yml())
+    return tmp_path
+
+
+@pytest.fixture
+def api_key_auth_test_client(
+    api_key_auth_config_dir: Path, mock_docker_backend, mock_systemd_backend, mock_compose_backend
+) -> TestClient:
+    mock_docker = MockBackend(
+        states={
+            "public-container": "running",
+            "admin-container": "running",
+            "viewer-control-container": "running",
+        }
+    )
+    yield from _make_test_client(
+        api_key_auth_config_dir, mock_docker, mock_systemd_backend, mock_compose_backend
     )
