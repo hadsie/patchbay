@@ -8,7 +8,7 @@
 # is missing or empty, API key authentication is disabled.
 #
 # Generate a key:
-#   python -c "from patchbay.auth import generate_api_key; k,h = generate_api_key('my-key'); print(f'Key: {k}\nHash: {h}')"
+#   patchbay-keygen --label my-key --roles admin
 #
 # Each key binds to roles defined in config.yml's auth.roles section.
 # Keep this file out of version control -- it contains secret hashes.

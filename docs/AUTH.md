@@ -201,7 +201,7 @@ For programmatic access (CLI, scripts, AI agents) where forward-auth headers are
 ### Generating a key
 
 ```bash
-python -c "from patchbay.auth import generate_api_key; k,h = generate_api_key('my-key'); print(f'Key: {k}\nHash: {h}')"
+patchbay-keygen --label my-key --roles admin
 ```
 
 Save the plaintext key somewhere safe -- it cannot be recovered from the hash.
