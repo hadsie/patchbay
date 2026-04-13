@@ -3,6 +3,7 @@
 config/config.yml
 config/services.yml
 config/presets.yml
+config/api_keys.yml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
