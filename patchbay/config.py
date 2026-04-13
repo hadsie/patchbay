@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG_DIR = "/config"
 
 
+def slugify(name: str) -> str:
+    """Convert a display name to a URL-friendly slug (lowercase, spaces to hyphens)."""
+    return name.lower().replace(" ", "-")
+
+
 class HealthCheckConfig(BaseModel):
     endpoint: HttpUrl
     method: str = "GET"
@@ -128,20 +133,23 @@ class AppConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_cross_references(self) -> AppConfig:
-        service_names = {s.name for s in self.services}
+        service_slugs = {slugify(s.name) for s in self.services}
 
-        # Check unique service names
-        if len(service_names) != len(self.services):
+        # Check unique service names (by slug -- "My Svc" and "my-svc" conflict)
+        if len(service_slugs) != len(self.services):
             seen: set[str] = set()
             for s in self.services:
-                if s.name in seen:
+                slug = slugify(s.name)
+                if slug in seen:
                     raise ValueError(f"duplicate service name: {s.name!r}")
-                seen.add(s.name)
+                seen.add(slug)
 
         # Drop presets that reference unknown services
         valid_presets = []
         for preset in self.presets:
-            bad_refs = [a.service for a in preset.actions if a.service not in service_names]
+            bad_refs = [
+                a.service for a in preset.actions if slugify(a.service) not in service_slugs
+            ]
             if bad_refs:
                 logger.warning(
                     "Skipping preset %r: references unknown service(s) %s",

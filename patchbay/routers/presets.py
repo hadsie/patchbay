@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from patchbay.auth import can_control, can_view, resolve_user
+from patchbay.config import slugify
 from patchbay.models import PresetActionInfo, PresetActivationResponse, PresetInfo
 from patchbay.presets import activate_preset
 
@@ -11,8 +12,9 @@ router = APIRouter(prefix="/api/presets", tags=["presets"])
 
 
 def _find_preset(config, name):
+    slug = slugify(name)
     for p in config.presets:
-        if p.name == name:
+        if slugify(p.name) == slug:
             return p
     return None
 

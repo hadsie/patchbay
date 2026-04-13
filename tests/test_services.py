@@ -25,6 +25,11 @@ class TestGetService:
         assert resp.status_code == 200
         assert resp.json()["name"] == "test-svc"
 
+    def test_slug_lookup_is_case_insensitive(self, test_client):
+        resp = test_client.get("/api/services/Test-Svc")
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "test-svc"
+
     def test_404_for_unknown(self, test_client):
         resp = test_client.get("/api/services/nonexistent")
         assert resp.status_code == 404

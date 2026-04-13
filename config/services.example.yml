@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # Each service has these fields:
-#   name          (required)  Unique display name, used as identifier in API and presets
+#   name          (required)  Unique display name. Slugified for API URLs (e.g. "Open WebUI" -> /api/services/open-webui)
 #   type          (required)  "docker", "compose", or "systemd"
 #   target        (required)  docker: container name
 #                              compose: absolute path to project dir (with compose.yml)

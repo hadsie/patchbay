@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 
 from patchbay.auth import can_control, can_view, resolve_user
 from patchbay.backends.base import BackendError, ServiceBackend
-from patchbay.config import AppConfig, ServiceConfig
+from patchbay.config import AppConfig, ServiceConfig, slugify
 from patchbay.health import HealthChecker, resolve_health
 from patchbay.models import ErrorResponse, HealthDetail, ServiceActionResponse, ServiceStatus
 
@@ -23,8 +23,9 @@ def _get_deps(request: Request) -> tuple[AppConfig, dict[str, ServiceBackend], H
 
 
 def _find_service(config: AppConfig, name: str) -> ServiceConfig | None:
+    slug = slugify(name)
     for svc in config.services:
-        if svc.name == name:
+        if slugify(svc.name) == slug:
             return svc
     return None
 

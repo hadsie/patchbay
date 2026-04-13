@@ -4,8 +4,22 @@ from pathlib import Path
 
 import pytest
 
-from patchbay.config import AuthConfig, ConfigHolder, GlobalConfig, _load_and_validate
+from patchbay.config import AuthConfig, ConfigHolder, GlobalConfig, _load_and_validate, slugify
 from tests.conftest import write_config_files
+
+
+class TestSlugify:
+    def test_lowercase(self):
+        assert slugify("Docmill") == "docmill"
+
+    def test_spaces_to_hyphens(self):
+        assert slugify("Open WebUI") == "open-webui"
+
+    def test_already_slugified(self):
+        assert slugify("test-svc") == "test-svc"
+
+    def test_mixed_case_with_spaces(self):
+        assert slugify("Firefly III") == "firefly-iii"
 
 
 class TestGlobalConfig:
@@ -76,6 +90,19 @@ class TestConfigLoading:
                 "services:\n"
                 "  - name: dup\n    type: docker\n    target: a\n"
                 "  - name: dup\n    type: docker\n    target: b\n"
+            ),
+            presets_yml="presets: []\n",
+        )
+        with pytest.raises(ValueError, match="duplicate service name"):
+            _load_and_validate(tmp_path)
+
+    def test_slug_colliding_service_names_rejected(self, tmp_path: Path):
+        write_config_files(
+            tmp_path,
+            services_yml=(
+                "services:\n"
+                "  - name: My Svc\n    type: docker\n    target: a\n"
+                "  - name: my-svc\n    type: docker\n    target: b\n"
             ),
             presets_yml="presets: []\n",
         )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from patchbay.backends.base import BackendError, ServiceBackend
-from patchbay.config import AppConfig
+from patchbay.config import AppConfig, slugify
 from patchbay.models import PresetActionResult, PresetActivationResponse
 
 
@@ -12,22 +12,23 @@ async def activate_preset(
     config: AppConfig,
     backends: dict[str, ServiceBackend],
 ) -> PresetActivationResponse:
+    preset_slug = slugify(preset_name)
     preset = None
     for p in config.presets:
-        if p.name == preset_name:
+        if slugify(p.name) == preset_slug:
             preset = p
             break
 
     if preset is None:
         raise KeyError(f"Preset not found: {preset_name}")
 
-    service_map = {s.name: s for s in config.services}
+    service_map = {slugify(s.name): s for s in config.services}
     results: list[PresetActionResult] = []
     failed_at: int | None = None
     total_start = time.monotonic()
 
     for i, action in enumerate(preset.actions):
-        svc = service_map[action.service]
+        svc = service_map[slugify(action.service)]
         backend = backends[svc.type]
         action_start = time.monotonic()
 
