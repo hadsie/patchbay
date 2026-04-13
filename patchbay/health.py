@@ -11,7 +11,7 @@ from patchbay.config import AppConfig, ServiceConfig
 
 logger = logging.getLogger(__name__)
 
-RUNNING_STATES = {"running", "active", "activating", "restarting"}
+RUNNING_STATES = {"running", "restarting"}
 
 
 @dataclass
@@ -127,7 +127,7 @@ def resolve_health(
     health_checker_result: HealthResult | None,
     docker_health: str | None,
 ) -> str:
-    stopped_states = {"stopped", "exited", "inactive", "dead"}
+    stopped_states = {"stopped", "error"}
     if state in stopped_states:
         return "n/a"
     if service.health_check and health_checker_result:

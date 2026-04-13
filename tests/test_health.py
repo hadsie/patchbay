@@ -18,13 +18,9 @@ class TestResolveHealth:
         svc = _make_service()
         assert resolve_health(svc, "stopped", None, None) == "n/a"
 
-    def test_inactive_returns_na(self):
+    def test_error_returns_na(self):
         svc = _make_service()
-        assert resolve_health(svc, "inactive", None, None) == "n/a"
-
-    def test_dead_returns_na(self):
-        svc = _make_service()
-        assert resolve_health(svc, "dead", None, None) == "n/a"
+        assert resolve_health(svc, "error", None, None) == "n/a"
 
     def test_http_check_result_takes_priority(self):
         hc = HealthCheckConfig(endpoint="http://localhost/health")
@@ -60,9 +56,9 @@ class TestResolveHealth:
         svc = _make_service()
         assert resolve_health(svc, "running", None, None) == "healthy"
 
-    def test_active_no_check_assumes_healthy(self):
+    def test_systemd_running_no_check_assumes_healthy(self):
         svc = _make_service(stype="systemd", target="test.service")
-        assert resolve_health(svc, "active", None, None) == "healthy"
+        assert resolve_health(svc, "running", None, None) == "healthy"
 
     def test_partial_with_no_check_returns_unhealthy(self):
         svc = _make_service(stype="compose", target="/opt/app")

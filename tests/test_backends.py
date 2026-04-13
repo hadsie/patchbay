@@ -143,7 +143,7 @@ class TestSystemdBackend:
         )
         backend = SystemdBackend()
         state = asyncio.get_event_loop().run_until_complete(backend.get_state("sshd.service"))
-        assert state == "active"
+        assert state == "running"
 
     @patch("patchbay.backends.systemd._run_systemctl")
     def test_get_state_inactive(self, mock_run):
@@ -152,7 +152,7 @@ class TestSystemdBackend:
         )
         backend = SystemdBackend()
         state = asyncio.get_event_loop().run_until_complete(backend.get_state("stopped.service"))
-        assert state == "inactive"
+        assert state == "stopped"
 
     @patch("patchbay.backends.systemd._run_systemctl")
     def test_unit_not_found(self, mock_run):

@@ -81,7 +81,7 @@ function dashboard() {
     },
 
     isRunning(state) {
-      return ['running', 'active', 'activating', 'restarting', 'partial'].includes(state);
+      return ['running', 'restarting', 'partial'].includes(state);
     },
 
     statusClass(state, health) {

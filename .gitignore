@@ -1,4 +1,5 @@
 # Patchbay ignores
+.DS_Store
 config/config.yml
 config/services.yml
 config/presets.yml

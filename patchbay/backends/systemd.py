@@ -67,9 +67,14 @@ class SystemdBackend(ServiceBackend):
         output = result.stdout.strip()
         if result.returncode == 4:
             raise ServiceNotFoundError(f"Unit not found: {target}")
-        if output in ("active", "inactive", "failed", "activating", "deactivating"):
-            return output
-        return "unknown"
+        state_map = {
+            "active": "running",
+            "inactive": "stopped",
+            "failed": "error",
+            "activating": "restarting",
+            "deactivating": "restarting",
+        }
+        return state_map.get(output, "unknown")
 
     async def _run_action(self, action: str, target: str) -> None:
         try:

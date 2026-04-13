@@ -32,7 +32,7 @@ class MockBackend:
         return None
 
     async def get_uptime(self, target: str) -> str | None:
-        if self._states.get(target) in ("running", "active"):
+        if self._states.get(target) == "running":
             return "1d 2h"
         return None
 
@@ -97,7 +97,7 @@ def mock_docker_backend() -> MockBackend:
 
 @pytest.fixture
 def mock_systemd_backend() -> MockBackend:
-    return MockBackend(states={"test.service": "active"})
+    return MockBackend(states={"test.service": "running"})
 
 
 @pytest.fixture

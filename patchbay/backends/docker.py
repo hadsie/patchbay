@@ -47,7 +47,16 @@ class DockerBackend(ServiceBackend):
 
     async def get_state(self, target: str) -> str:
         container = await asyncio.to_thread(self._get_container, target)
-        return container.status
+        raw = container.status
+        if raw == "running":
+            return "running"
+        if raw in ("exited", "created", "paused", "removing"):
+            return "stopped"
+        if raw == "dead":
+            return "error"
+        if raw == "restarting":
+            return "restarting"
+        return "unknown"
 
     async def start(self, target: str) -> None:
         import docker.errors
