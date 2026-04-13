@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"API key created for {args.label!r}")
     print(f"Key: {plaintext}")
     print("Save this key now -- it cannot be recovered.")
+    print("Restart Patchbay or POST /api/config/reload for the key to take effect.")
 
 
 if __name__ == "__main__":
